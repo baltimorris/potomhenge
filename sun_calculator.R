@@ -32,8 +32,8 @@ sun_df$elevation_deg <- sun_df$altitude_rad * 180/pi
 sun_df_day <- sun_df %>%
   filter(elevation_deg > 0)
 
-dist <- 10
-heading <- 124.65201
+dist <- 5
+heading <- 0.96600459
 lat2 <- ((dist/111.2) * cos(heading))+lat
 lon2 <- ((dist/111.2) * (sin(heading)/cos(lat)))+lon
 
@@ -46,8 +46,8 @@ map <- leaflet() %>%
   print(map)
 
 # Export CSV -- not necessary tbh mostly for arcpro use
-write.csv(sun_df_day,
-          "C:\\Users\\E062583\\Documents\\sun_position_hourly_2026.csv",
-          row.names = FALSE)
-
-
+# write.csv(sun_df_day,
+#           "C:\\Users\\E062583\\Documents\\sun_position_hourly_2026.csv",
+#           row.names = FALSE)
+# 
+# 
