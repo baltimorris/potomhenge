@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Potomhenge</title>
+<link rel="icon" type="image/png" href="dc_sun.png">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Bebas+Neue&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+  /* ── RESET & CSS VARIABLES ──────────────────────────────────────────────────
+     Global box-sizing. CSS vars drive the entire color theme.
+     --bg: page/map background | --panel: sidebar & header fill
+     --border: all dividers   | --accent: orange highlights
+     --yellow: title & coords | --text: body copy | --muted: labels
+  ─────────────────────────────────────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0a0a0f;
+    --panel: #111118;
+    --border: #2a2a3a;
+    --accent: #ff6b35;
+    --yellow: #ffd166;
+    --text: #e0e0e8;
+    --muted: #666680;
+    --blue: #7dd3fc;      /* street axis line color on map */
+  }
+
+  /* ── PAGE SHELL ─────────────────────────────────────────────────────────── */
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Space Mono', monospace;
+    display: flex; flex-direction: column;
+  }
+
+  /* ── HEADER ─────────────────────────────────────────────────────────────── */
+  header {
+    padding: 12px 24px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: baseline; gap: 20px;
+    background: var(--panel); flex-shrink: 0; z-index: 10;
+  }
+  header h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.5rem; letter-spacing: 0.12em; color: var(--yellow);
+  }
+  header .sub { font-size: 0.65rem; color: var(--muted); letter-spacing: 0.08em; }
+
+  /* ── LAYOUT ─────────────────────────────────────────────────────────────── */
+  .layout { display: flex; flex: 1; min-height: 0; }
+  #map-wrap { flex: 1; position: relative; min-width: 0; }
+  #map { width: 100%; height: 100%; background: #05050a; }
+
+  /* ── LOADING OVERLAY ────────────────────────────────────────────────────── */
+  #loading {
+    display: none; position: absolute; inset: 0; z-index: 1000;
+    background: rgba(10,10,15,0.88);
+    align-items: center; justify-content: center;
+    flex-direction: column; gap: 14px; pointer-events: none;
+  }
+  #loading.on { display: flex; }
+  #loading .spin {
+    font-family: 'Bebas Neue', sans-serif; font-size: 1.7rem;
+    letter-spacing: 0.2em; color: var(--yellow);
+    text-shadow: 0 0 30px #ff6b3580;
+    animation: pulse 0.9s ease-in-out infinite alternate;
+  }
+  #loading .sub2 { font-size: 0.62rem; color: var(--muted); letter-spacing: 0.1em; }
+  #load-track {
+    width: 280px; height: 3px;          /* bar height */
+    background: #2a2a3a; border-radius: 2px; overflow: hidden;
+  }
+  #load-bar {
+    height: 100%; width: 0%;
+    background: var(--accent);          /* bar fill color */
+    transition: width 0.1s linear; border-radius: 2px;
+  }
+  @keyframes pulse { from { opacity: 0.25; } to { opacity: 1; } }
+
+  /* ── CLICK HINT ─────────────────────────────────────────────────────────── */
+  #click-hint {
+    position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+    z-index: 500; background: rgba(10,10,15,0.82); border: 1px solid var(--border);
+    padding: 5px 13px; font-size: 0.6rem; color: var(--muted);
+    letter-spacing: 0.08em; pointer-events: none; white-space: nowrap; border-radius: 2px;
+  }
+
+  /* ── SIDEBAR ────────────────────────────────────────────────────────────── */
+  .sidebar {
+    width: 268px;                       /* sidebar width */
+    background: var(--panel); border-left: 1px solid var(--border);
+    padding: 16px 13px; display: flex; flex-direction: column;
+    gap: 15px;                          /* space between sections */
+    overflow-y: auto; flex-shrink: 0;
+  }
+  .sidebar h2 {
+    font-family: 'Bebas Neue', sans-serif; font-size: 1.0rem;
+    letter-spacing: 0.1em; color: var(--accent);
+    border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-bottom: 2px;
+  }
+
+  /* ── LEGEND ─────────────────────────────────────────────────────────────── */
+  .legend-bar {
+    height: 12px; border-radius: 2px;
+    background: linear-gradient(to right, #ff2200, #ff6b35, #ffaa00, #ffd166);
+    border: 1px solid #333; margin-bottom: 3px;
+  }
+  .legend-labels { display: flex; justify-content: space-between; font-size: 0.58rem; color: var(--muted); }
+  .legend-note   { font-size: 0.58rem; color: var(--muted); line-height: 1.7; margin-top: 4px; }
+
+  /* ── FORM CONTROLS ──────────────────────────────────────────────────────── */
+  label.field {
+    font-size: 0.6rem; color: var(--muted);
+    letter-spacing: 0.06em; text-transform: uppercase;
+    display: block; margin-bottom: 3px;
+  }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .range-val { font-size: 0.6rem; color: var(--muted); text-align: right; }
+
+  /* ── COORDINATES BOX ────────────────────────────────────────────────────── */
+  .coords-box {
+    background: #0d0d15; border: 1px solid var(--border);
+    padding: 7px 9px; font-size: 0.68rem; line-height: 1.9; border-radius: 2px;
+  }
+  .coords-box .cl {
+    color: var(--muted); font-size: 0.56rem;
+    display: inline-block; width: 26px;
+  }
+
+  /* ── DAY DISPLAY ────────────────────────────────────────────────────────── */
+  #dayDisplay {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.1rem; color: var(--yellow);
+    letter-spacing: 0.1em; text-align: center; margin-bottom: 4px;
+  }
+  #dayDisplay.all-year { color: var(--muted); }
+
+  /* ── STREET AXIS SECTION ────────────────────────────────────────────────────
+     The light-blue azimuth readout box showing the current street angle.
+     The ±/− buttons step the angle in 0.5° increments.
+     The drag-hint note below the slider explains how to use the line on the map.
+  ─────────────────────────────────────────────────────────────────────────── */
+  .axis-angle-box {
+    display: flex; align-items: center; gap: 6px;
+    background: #0d0d15; border: 1px solid var(--border);
+    padding: 6px 9px; border-radius: 2px; margin-bottom: 6px;
+  }
+  .axis-angle-box .ang-val {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.3rem;                  /* angle display size */
+    color: var(--blue); letter-spacing: 0.08em; flex: 1; text-align: center;
+  }
+  .axis-angle-box button {
+    background: #1a1a28; border: 1px solid var(--border);
+    color: var(--blue); font-family: 'Space Mono', monospace;
+    font-size: 1rem; width: 26px; height: 26px;
+    cursor: pointer; border-radius: 2px; line-height: 1;
+    transition: background 0.12s;
+  }
+  .axis-angle-box button:hover { background: #252535; }
+  .axis-drag-hint {
+    font-size: 0.58rem; color: var(--muted); line-height: 1.65; margin-top: 2px;
+  }
+
+  /* ── STATS ROWS ─────────────────────────────────────────────────────────── */
+  .stat-row {
+    display: flex; justify-content: space-between; font-size: 0.61rem;
+    padding: 3px 0; border-bottom: 1px solid #1a1a25; color: var(--muted);
+  }
+  .stat-row span:last-child { color: var(--text); }
+
+  /* ── HENGE LIST ─────────────────────────────────────────────────────────── */
+  .henge-list { display: flex; flex-direction: column; gap: 4px; max-height: 210px; overflow-y: auto; }
+  .henge-item {
+    background: #16161f; border: 1px solid #2a1a10;
+    border-left: 3px solid var(--accent);
+    padding: 5px 7px; font-size: 0.58rem; line-height: 1.65; color: var(--text);
+    cursor: pointer; transition: border-color 0.12s, background 0.12s;
+  }
+  .henge-item:hover { border-left-color: var(--yellow); background: #1c170d; }
+  .henge-item .ht  { color: var(--accent); font-weight: 700; }
+  .henge-item .haz { color: var(--blue); }
+  .no-henge { font-size: 0.6rem; color: #555; }
+
+  /* ── MODAL OVERLAY ──────────────────────────────────────────────────────────
+     Full-screen dark backdrop. Clicking the backdrop dismisses the modal.
+     z-index: 2000 puts it above everything including the loading overlay.
+  ─────────────────────────────────────────────────────────────────────────── */
+  #modal-overlay {
+    position: fixed; inset: 0; z-index: 2000;
+    background: rgba(5,5,10,0.92);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  #modal-overlay.hidden { display: none; }
+
+  /* ── MODAL BOX ──────────────────────────────────────────────────────────────
+     The white-bordered card. max-width keeps it readable on wide screens.
+     padding: inner breathing room. gap: space between sections inside.
+  ─────────────────────────────────────────────────────────────────────────── */
+  #modal {
+    background: #0e0e18;
+    border: 1px solid #3a3a55;
+    border-top: 3px solid var(--yellow);
+    max-width: 540px; width: 100%;
+    padding: 32px 30px 26px;
+    display: flex; flex-direction: column; gap: 18px;
+    position: relative;
+  }
+  #modal h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem; letter-spacing: 0.15em;
+    color: var(--yellow); line-height: 1;
+  }
+  #modal h1 span { color: var(--accent); }  /* "-HENGE" portion in orange */
+  #modal .modal-body {
+    font-size: 0.72rem; line-height: 1.85; color: #b0b0c8;
+  }
+  #modal .modal-body strong { color: var(--text); }
+  #modal .modal-body .example {
+    margin-top: 10px;
+    border-left: 3px solid var(--accent);
+    padding: 8px 12px;
+    background: #13131e;
+    font-size: 0.68rem; line-height: 1.7; color: var(--muted);
+  }
+  #modal .modal-body .example strong { color: var(--yellow); }
+  #modal-close {
+    align-self: flex-end;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1rem; letter-spacing: 0.12em;
+    background: var(--accent); color: #000;
+    border: none; padding: 9px 28px;
+    cursor: pointer; border-radius: 2px;
+    transition: background 0.15s;
+  }
+  #modal-close:hover { background: var(--yellow); }
+
+  /* ── FAQ MODAL ──────────────────────────────────────────────────────────────
+     Second modal, triggered by the ? button in the header.
+     Reuses the same overlay pattern as the intro modal.
+     #faq-modal: the card. .faq-item: each collapsible Q&A block.
+     .faq-q: clickable question row. .faq-a: answer body, hidden by default.
+     .faq-item.open .faq-a: answer shown when .open is toggled on.
+     .faq-item.open .faq-arrow: rotates the ▶ arrow 90° when open.
+  ─────────────────────────────────────────────────────────────────────────── */
+  #faq-overlay {
+    position: fixed; inset: 0; z-index: 2000;
+    background: rgba(5,5,10,0.92);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  #faq-overlay.hidden { display: none; }
+
+  #faq-modal {
+    background: #0e0e18;
+    border: 1px solid #3a3a55;
+    border-top: 3px solid var(--blue);   /* blue top stripe — differentiates from intro modal */
+    max-width: 560px; width: 100%;
+    max-height: 80vh;
+    display: flex; flex-direction: column;
+    position: relative;
+  }
+
+  #faq-modal .faq-header {
+    padding: 24px 28px 16px;
+    display: flex; align-items: baseline; justify-content: space-between;
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  #faq-modal .faq-header h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.8rem; letter-spacing: 0.15em;
+    color: var(--blue); line-height: 1;
+    border: none; padding: 0; margin: 0;  /* override sidebar h2 */
+  }
+  #faq-modal .faq-header h2 span { color: var(--muted); font-size: 1.1rem; }
+  #faq-close {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.9rem; background: none;
+    border: 1px solid var(--border); color: var(--muted);
+    padding: 4px 10px; cursor: pointer; border-radius: 2px;
+    transition: border-color 0.12s, color 0.12s;
+  }
+  #faq-close:hover { border-color: var(--blue); color: var(--blue); }
+
+  /* Scrollable body for the accordion items */
+  #faq-body {
+    overflow-y: auto; padding: 10px 0 16px;
+  }
+
+  /* Each Q&A pair */
+  .faq-item {
+    border-bottom: 1px solid #1c1c2a;
+  }
+  .faq-q {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 28px; cursor: pointer;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem; font-weight: 700;
+    color: var(--text); letter-spacing: 0.03em;
+    user-select: none;
+    transition: color 0.12s;
+  }
+  .faq-q:hover { color: var(--yellow); }
+  .faq-item.open .faq-q { color: var(--yellow); }
+
+  /* Rotating arrow indicator */
+  .faq-arrow {
+    font-size: 0.55rem; color: var(--muted);
+    transition: transform 0.2s; flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .faq-item.open .faq-arrow { transform: rotate(90deg); color: var(--yellow); }
+
+  /* Answer body: hidden by default, shown when .open */
+  .faq-a {
+    display: none;
+    padding: 0 28px 14px 40px;
+    font-size: 0.68rem; line-height: 1.85; color: #9090b0;
+  }
+  .faq-item.open .faq-a { display: block; }
+  .faq-a strong { color: var(--text); }
+  .faq-a .tag {
+    display: inline-block;
+    background: #1a1a28; border: 1px solid var(--border);
+    color: var(--yellow); font-size: 0.6rem;
+    padding: 1px 6px; border-radius: 2px;
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 0.06em; margin: 0 2px;
+  }
+
+  /* ── FAQ TRIGGER BUTTON ─────────────────────────────────────────────────────
+     The small ? badge in the header next to "2026".
+     Aligned to header baseline using align-self: center.
+  ─────────────────────────────────────────────────────────────────────────── */
+  #faq-btn {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem; letter-spacing: 0.06em;
+    background: #1a1a28; border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 3px 8px; cursor: pointer; border-radius: 2px;
+    transition: border-color 0.15s, color 0.15s;
+    align-self: center;
+    white-space: nowrap;
+  }
+  #faq-btn:hover { border-color: var(--blue); color: var(--blue); }
+</style>
+</head>
+<body>
+
+<!-- ── LAUNCH MODAL ─────────────────────────────────────────────────────────── -->
+<div id="modal-overlay">
+  <div id="modal">
+    <h1>What is Potomhenge?<br><span>...or any "-henge"?</span></h1>
+    <div class="modal-body">
+      <p>
+        <strong>Stonehenge</strong> is famous for the way the rising sun aligns perfectly
+        with its central axis on the summer solstice. That dramatic moment, when the sun lines up exactly with a
+        human-made corridor, is the original "-henge." Every summer, thousands flock to England to experience the phenomenon.
+      </p>
+      <p style="margin-top:10px">
+        Twice a year, the setting sun similarly aligns with Manhattan's east-west street grid, illumunating
+        the concrete canyons in a spectacle of natural-urban collaboration. This has become known as <strong>Manhattanhenge</strong>.
+      </p>
+      <p style="margin-top:10px">
+        In Washington DC, Pierre-Charles L'Enfant designed a robust city plan that features a mosaic of cardinal streets,
+        diagonal avenues, and a handful of other perpendicularities. Therefore, each has its own
+        "-henge" moments each year: dates when the sun rises or sets directly down
+        that street, low on the horizon, setting the ciy's famous monuments and canopies aglow. Introducing <strong>Potomhenge</strong> <em>[pə'toʊm'hendʒ] (puh-tohm-henj)</em>, named after the
+        Potomac River, one of the two rivers that DC relies on.
+      </p>
+      <div class="example">
+        <strong>How to use this tool:</strong><br>
+        Click anywhere on the map to set your viewpoint. Use the <strong style="color:var(--blue)">street axis line</strong>
+        to dial in any street bearing (or "azimuth") by rotating it until it lines up with your street on the map if the street you want isn't *directly* east-west.
+        Rays that match that bearing and are below 10° elevation (how high the sun is above the horizon) are your
+        <strong style="color:var(--accent)">henge moments</strong>. 
+      </div>
+    </div>
+    <button id="modal-close">SHINE ON &rarr;</button>
+  </div>
+</div>
+
+<!-- ── FAQ MODAL ─────────────────────────────────────────────────────────────── -->
+<div id="faq-overlay" class="hidden">
+  <div id="faq-modal">
+    <div class="faq-header">
+      <h2>FAQ <span>/ Glossary</span></h2>
+      <button id="faq-close">CLOSE ✕</button>
+    </div>
+    <div id="faq-body">
+
+      <div class="faq-item">
+        <div class="faq-q"><span class="faq-arrow">&#9658;</span>What's azimuth?</div>
+        <div class="faq-a">
+          <strong>Azimuth</strong> is the compass bearing of the sun measured in degrees clockwise from true north.
+          Think of it like a clock: north is 12 (0°), due east is 3 (90°), due south is 6 (180°), and due west is 9 (270°).
+          When we say the sun is at azimuth 90°, it means the sun is positioned exactly to the east of the viewer. Where and when the
+          sun reaches certain azimuths is highly dependent on one's latitude and the season.
+          The <span class="tag">Street Axis</span> slider in the sidebar lets you set a target azimuth to match your street, since some
+          streets are slightly off from a true-north orientation (nobody's perfect, not even L'Enfant).
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q"><span class="faq-arrow">&#9658;</span>What's elevation / the horizon?</div>
+        <div class="faq-a">
+          <strong>Elevation</strong> (also called "altitude") is basically how high the sun is above the horizon, measured in degrees.
+          0° means the sun is right at the horizon; 90° would mean it's directly overhead (the "zenith").
+          Henge moments are most spectacular when elevation is very low, when the sun appears to be just above street level.
+          This tool flags rays below <strong>10° elevation</strong> as henge candidates, shown as orange dots on the end of certain rays.
+          <br><br>
+          <em>Note:</em> This tool calculates <strong>astronomical elevation</strong>. It doesn't account for buildings, hills, or atmospheric refraction, which can shift the apparent horizon by 0.5–1°.
+          That part's on you!
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q"><span class="faq-arrow">&#9658;</span>Why do the rays fan out like a half-circle?</div>
+        <div class="faq-a">
+          Over a full year, the sun traces an arc across the sky each day: rising somewhere in the east, reaching its peak to the south, and setting in the west.
+          Each colored ray on the map represents one minute of sunlight for a given day.
+          Together, they paint the full range of directions the sun travels throughout the year.
+          In summer, the sun rises and sets farther north (thus the rays spread wider); in winter, it stays closer to due east/west. The gap between the sunsets/sunrises are what scientists refer to as "night", when the sun goes to sleep.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q"><span class="faq-arrow">&#9658;</span>What do the ray colors mean?</div>
+        <div class="faq-a">
+          Rays are colored by the sun's <strong>elevation</strong> at that moment.
+          <br><br>
+          <strong style="color:#ff2200">Red</strong> = sun very low, just above the horizon (0–5°). The most dramatic crimson light, and the most likely to be framed by the buildings.<br>
+          <strong style="color:#ff6b35">Orange</strong> = sun low but climbing (5–20°). Think golden hour!<br>
+          <strong style="color:#ffaa00">Amber</strong> = sun getting higher (20–35°). Good morning!<br>
+          <strong style="color:#ffd166">Yellow</strong> = sun high in the sky (35°+). Man, it's a hot one; like seven inches from the midday sun.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q"><span class="faq-arrow">&#9658;</span>What causes those pretty colors anyway?</div>
+        <div class="faq-a">
+          Sunlight particles have to travel through the atmosphere to get to us, and in doing so, get "scattered" around.
+          Ones with shorter wavelengths (blues, violets) get scattered more easily than the ones with longer ones (reds, oranges). The color of the sky
+          represents whatever shortest wavelength showed up but is still too long to be scattered in the amount of atmosphere present. So during the day, the atmosphere
+          effectively "filters out" all the purples and violets, leaving that familiar blue color as the first in line. But as the sun rises or sets, it shines through more atmosphere
+          than it would if overhead, meaning more light gets filtered. By the time it reaches us, only the longer wavelengths remain: yellows, reds,
+          and oranges. 
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q"><span class="faq-arrow">&#9658;</span>How precise are the henge times?</div>
+        <div class="faq-a">
+          Times are calculated at <strong>1-minute intervals</strong> for every day of 2026, using standard solar position equations accurate to roughly <strong>±0.5°</strong> in azimuth.
+          Henge candidates are flagged when the sun's azimuth is within <strong>±0.25°</strong> of your chosen street bearing AND elevation is below 10°.
+          <br><br>
+          All times are shown in <strong>Eastern Time (ET)</strong>, automatically accounting for EDT (UTC−4) from March 8 and EST (UTC−5) from November 1.
+          <br><br>
+          This tool does <em>not</em> account for atmospheric refraction, terrain, or building height; those factors can shift the observable moment by a minute or two.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q"><span class="faq-arrow">&#9658;</span>How often does a "henge" moment happen?</div>
+        <div class="faq-a">
+          Because the sun travels across the sky every day, it crosses any given azimuth <strong>twice</strong>: once while rising in the morning (AM) and once while setting in the evening (PM).
+          For an east-west street, that means one sunrise henge and one sunset henge on both sides of the summer soltice. Typically this happens in the spring and again in fall when the sun rises/sets close to due east/west. 
+          <br>
+          But, this is highly dependent on the orientation of your city. Manhattan's angle is more offset from true north than DC, so Manhattanhenge occurs in May and July,
+          when the sunset azimuth is more extreme. DC, however, is gifted because of the uniqueness of our street grid. We've got usual east-west streets, that are more aligned with a straight grid,
+          but we also have grand avenues that happen to align with azimuths at <em>other</em> times of the year. This tool helps you identify all the potential times and locations!
+          <br><br>
+          The <span class="tag">AM</span> / <span class="tag">PM</span> labels on the map indicate which side of the origin the morning vs. evening rays fall.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q"><span class="faq-arrow">&#9658;</span>What is DC's L'Enfant grid?</div>
+        <div class="faq-a">
+          Pierre Charles L'Enfant and Benjamin Banneker designed Washington DC's street plan in 1791. It layers two systems:
+          a <strong>cardinal grid</strong> of numbered and lettered streets running true north-south and east-west, overlaid with
+          <strong>diagonal avenues</strong> (usually named after states) radiating from traffic circles.
+          <br><br>
+          This means DC has multiple street axes at different angles, each with its own pair of henge moments.
+          Pennsylvania Ave, for example, runs at roughly 128°/308°, giving it a different pair of henge dates than the E–W grid.
+          <br><em>Fun fact: people often quote that DC is based after Paris' street plan, but the design of Paris as we know it now did not exist until the 1885 Hausmann plan, almost a century after L'Enfant drew up the District.
+          So in a way, Paris is based after us!</em>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q"><span class="faq-arrow">&#9658;</span>Can I use this for other cities?</div>
+        <div class="faq-a">
+          Yep! Just click anywhere on the map to move the origin point.
+          The tool recomputes all solar positions for the new location.
+          The underlying solar math works for any location on Earth. Shouts out science!
+          <br><br>
+         Basically, pick any city with a strong city grid and not a lot of natural barriers! Try out Toronto, Chicago, or Melbourne!
+         (Maybe don't try out Mexico City, Boston, or Marrakesh.)
+        </div>
+      </div>
+
+    </div><!-- /faq-body -->
+  </div>
+</div>
+
+<header>
+  <h1><img src="dc_sun.png" alt="Potomhenge sun" style="height:1.3em;vertical-align:middle;margin-right:8px;margin-bottom:3px"> Potomhenge</h1>
+  <span class="sub">WHERE THE SUN LINES UP WITH WASHINGTON &middot; &#169;&#65039; DREW MORRIS &middot; 2026</span>
+  <button id="faq-btn">? FAQ</button>
+</header>
+
+<div class="layout">
+  <div id="map-wrap">
+    <div id="map"></div>
+    <div id="loading">
+      <div class="spin" id="loadText">COMPUTING 2026&hellip;</div>
+      <div id="load-track"><div id="load-bar"></div></div>
+      <div class="sub2" id="loadSub">CALCULATING SOLAR POSITIONS AT 1-MINUTE INTERVALS</div>
+    </div>
+    <div id="click-hint">CLICK MAP TO MOVE ORIGIN &nbsp;|&nbsp; DRAG BLUE LINE TIP TO ROTATE AXIS</div>
+  </div>
+
+  <div class="sidebar">
+
+    <div>
+      <h2>Origin</h2>
+      <div class="coords-box">
+        <div><span class="cl">LAT</span><span id="dLat">38.90730</span></div>
+        <div><span class="cl">LON</span><span id="dLon">-77.03690</span></div>
+      </div>
+    </div>
+
+    <div>
+      <h2>Day</h2>
+      <div id="dayDisplay" class="all-year">ALL YEAR</div>
+      <label class="field">Far Left = all year &nbsp;&mdash;&nbsp; slide for single day</label>
+      <input type="range" id="daySlider" min="0" max="365" step="1" value="0">
+    </div>
+
+    <div>
+      <h2>Ray Length</h2>
+      <label class="field">Distance</label>
+      <input type="range" id="rayLen" min="0.5" max="20" step="0.5" value="5">
+      <div class="range-val" id="rayLenVal">5.0 km</div>
+    </div>
+
+    <!-- STREET AXIS SECTION: replaces the old grid toggles -->
+    <div>
+      <h2>Street Axis</h2>
+      <div class="axis-angle-box">
+        <button id="axisDown" title="Rotate -0.5°">&#8722;</button>
+        <span class="ang-val"><span id="axisVal">90.0</span>&deg;</span>
+        <button id="axisUp"   title="Rotate +0.5°">+</button>
+      </div>
+      <label class="field">Bearing (0&ndash;360&deg;)</label>
+      <!-- Full 0–360 rotation slider for the street axis -->
+      <input type="range" id="axisSlider" min="0" max="360" step="0.5" value="90">
+      <div class="axis-drag-hint">
+        The <span style="color:var(--blue)">blue line</span> shows your chosen street bearing.
+        Drag its tip on the map to rotate it, or use the slider above.
+        Henge moments = rays matching this bearing ±0.25° and below 10° elevation.
+      </div>
+    </div>
+
+    <div>
+      <h2>Color Scale</h2>
+      <div class="legend-bar"></div>
+      <div class="legend-labels"><span>0&deg; horizon</span><span>45&deg;+</span></div>
+      <div class="legend-note">Red = low elevation (henge-like)<br>Yellow = high elevation (midday)</div>
+    </div>
+
+    <div>
+      <h2>Stats</h2>
+      <div class="stat-row"><span>Rays shown</span><span id="s-shown">&mdash;</span></div>
+      <div class="stat-row"><span>Henge candidates</span><span id="s-henge">&mdash;</span></div>
+      <div class="stat-row"><span>Elevation range</span><span id="s-elev">&mdash;</span></div>
+    </div>
+
+    <div>
+      <h2>Henge Moments</h2>
+      <div id="hengeAxisNote" style="font-size:0.58rem;color:var(--muted);margin-bottom:5px">
+        Axis &mdash;&deg; &middot; Elev &lt;10&deg; &middot; Click to zoom
+      </div>
+      <div class="henge-list" id="hengeList"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── MODAL ───────────────────────────────────────────────────────────────────
+document.getElementById('modal-close').addEventListener('click', () => {
+  document.getElementById('modal-overlay').classList.add('hidden');
+});
+// Also dismiss by clicking the dark backdrop outside the modal box
+document.getElementById('modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) this.classList.add('hidden');
+});
+
+// ── FAQ MODAL ────────────────────────────────────────────────────────────────
+document.getElementById('faq-btn').addEventListener('click', () => {
+  document.getElementById('faq-overlay').classList.remove('hidden');
+});
+document.getElementById('faq-close').addEventListener('click', () => {
+  document.getElementById('faq-overlay').classList.add('hidden');
+});
+document.getElementById('faq-overlay').addEventListener('click', function(e) {
+  if (e.target === this) this.classList.add('hidden');
+});
+// Accordion: clicking a .faq-q toggles .open on its parent .faq-item
+document.querySelectorAll('.faq-q').forEach(q => {
+  q.addEventListener('click', () => {
+    const item = q.parentElement;
+    const wasOpen = item.classList.contains('open');
+    // Close all items first
+    document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+    // Open the clicked one unless it was already open
+    if (!wasOpen) item.classList.add('open');
+  });
+});
+
+// ── HENGE DETECTION SETTINGS ────────────────────────────────────────────────
+// Tolerance: a sun ray must be within ±HENGE_TOL degrees of the street axis
+// bearing (or its opposite) to count as a henge candidate.
+const HENGE_TOL      = 0.25;  // degrees either side of the axis bearing
+const HENGE_ELEV_MAX = 10;    // max elevation (degrees above horizon) to qualify
+
+// ── SOLAR MATH (UTC-based, timezone-safe) ───────────────────────────────────
+// All calculations use UTC minutes to avoid browser-timezone bugs.
+// Times displayed are converted to America/New_York (ET).
+function toRad(d) { return d * Math.PI / 180; }
+function toDeg(r) { return r * 180 / Math.PI; }
+
+// UTC epoch ms for 2026-01-01T00:00:00Z
+const EPOCH_2026_UTC = Date.UTC(2026, 0, 1);
+
+// utcMin = total minutes elapsed since 2026-01-01T00:00:00Z
+function solarPosUTC(utcMin, lat, lon) {
+  const ms  = EPOCH_2026_UTC + utcMin * 60000;
+  const jd  = ms / 86400000 + 2440587.5;
+  const n   = jd - 2451545.0;
+  const L   = (280.460 + 0.9856474 * n) % 360;
+  const g   = toRad((357.528 + 0.9856003 * n) % 360);
+  const lam = toRad(L + 1.915 * Math.sin(g) + 0.020 * Math.sin(2*g));
+  const eps = toRad(23.439 - 0.0000004 * n);
+  const sinDec = Math.sin(eps) * Math.sin(lam);
+  const dec    = Math.asin(sinDec);
+  const B   = toRad(360/365 * (n - 81));
+  const EoT = 9.87*Math.sin(2*B) - 7.53*Math.cos(B) - 1.5*Math.sin(B);
+  // Solar noon in UTC minutes from midnight: 720 - 4*lon - EoT
+  // (lon is negative for west, so subtracting negative lon adds minutes — correct)
+  const solarNoonUTC = 720 - 4 * lon - EoT;
+  const utcMinOfDay  = utcMin % 1440;
+  const HRA = toRad((utcMinOfDay - solarNoonUTC) * 0.25);
+  const latr   = toRad(lat);
+  const sinAlt = Math.sin(latr)*Math.sin(dec) + Math.cos(latr)*Math.cos(dec)*Math.cos(HRA);
+  const alt    = Math.asin(Math.max(-1, Math.min(1, sinAlt)));
+  const cosAz  = (Math.sin(dec) - Math.sin(latr)*sinAlt) / (Math.cos(latr)*Math.cos(alt));
+  let az = toDeg(Math.acos(Math.max(-1, Math.min(1, cosAz))));
+  if (Math.sin(HRA) > 0) az = 360 - az;
+  return { alt: toDeg(alt), az };
+}
+
+// Convert UTC minute-of-day + doy0 (0-indexed, Jan1=0) to ET display string.
+// DST 2026: starts Mar 8 (doy0 65) EDT=UTC-4, ends Nov 1 (doy0 304) EST=UTC-5.
+function utcMinToETStr(utcMinOfDay, doy0) {
+  const isEDT     = (doy0 >= 65 && doy0 < 304);
+  const offsetMin = isEDT ? -240 : -300;
+  const tz        = isEDT ? 'EDT' : 'EST';
+  const etMin     = ((utcMinOfDay + offsetMin) % 1440 + 1440) % 1440;
+  return pad(Math.floor(etMin / 60)) + ':' + pad(etMin % 60) + ' ' + tz;
+}
+
+function elevColor(e) {
+  const t = Math.min(e / 45, 1);
+  return `rgb(255,${Math.round(34 + 175*t)},0)`;
+}
+
+function destPt(lat, lon, brg, km) {
+  const R = 6371, d = km/R, b = toRad(brg);
+  const la = toRad(lat), lo = toRad(lon);
+  const la2 = Math.asin(Math.sin(la)*Math.cos(d) + Math.cos(la)*Math.sin(d)*Math.cos(b));
+  const lo2 = lo + Math.atan2(Math.sin(b)*Math.sin(d)*Math.cos(la), Math.cos(d)-Math.sin(la)*Math.sin(la2));
+  return [toDeg(la2), toDeg(lo2)];
+}
+
+// Returns true if az is within HENGE_TOL of the axis bearing OR its opposite (±180°)
+function isHengeAz(az, axisBearing) {
+  const opp = (axisBearing + 180) % 360;
+  function angDiff(a, b) { const d = Math.abs(a - b); return Math.min(d, 360 - d); }
+  return angDiff(az, axisBearing) <= HENGE_TOL || angDiff(az, opp) <= HENGE_TOL;
+}
+
+function pad(n) { return String(n).padStart(2,'0'); }
+
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function doyToDate(doy) {
+  const d = new Date(2026, 0, doy);
+  return `${MONTH_NAMES[d.getMonth()]} ${d.getDate()}`;
+}
+
+// ── STATE ───────────────────────────────────────────────────────────────────
+let _map, rayLayers = [], originPin;
+let axisLine = null;    // the blue street axis polyline on the map
+let axisDragMarker = null; // invisible draggable marker at one tip of the line
+let cLat = 38.9073, cLon = -77.0369;
+let rayKm  = 5;
+let curDay = 0;         // 0 = all year; 1–365 = day of 2026
+let axisBearing = 90;   // current street axis bearing in degrees (0–360)
+let allData    = [];    // all precomputed daytime-minute positions, full year
+let dataByDay  = [];    // dataByDay[doy0] = positions for that day (0-indexed)
+let precompDone = false;
+let amLabel = null, pmLabel = null;  // AM/PM map overlay labels
+
+// ── INIT ────────────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  _map = L.map('map', { preferCanvas: true });
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '\u00a9 OpenStreetMap \u00a9 CARTO', maxZoom: 19
+  }).addTo(_map);
+  _map.setView([cLat, cLon], 14);
+
+  // Click map to move origin
+  _map.on('click', e => {
+    cLat = e.latlng.lat; cLon = e.latlng.lng;
+    document.getElementById('dLat').textContent = cLat.toFixed(5);
+    document.getElementById('dLon').textContent = cLon.toFixed(5);
+    startPrecompute();
+  });
+
+  // Day slider
+  document.getElementById('daySlider').addEventListener('input', function() {
+    curDay = parseInt(this.value);
+    const disp = document.getElementById('dayDisplay');
+    if (curDay === 0) { disp.textContent = 'ALL YEAR'; disp.className = 'all-year'; }
+    else              { disp.textContent = doyToDate(curDay).toUpperCase(); disp.className = ''; }
+    if (precompDone) renderRays();
+  });
+
+  // Ray length slider
+  document.getElementById('rayLen').addEventListener('input', function() {
+    rayKm = parseFloat(this.value);
+    document.getElementById('rayLenVal').textContent = rayKm.toFixed(1) + ' km';
+    if (precompDone) { updateAxisLine(); renderRays(); }
+  });
+
+  // Axis bearing slider
+  document.getElementById('axisSlider').addEventListener('input', function() {
+    axisBearing = parseFloat(this.value);
+    syncAxisUI();
+    if (precompDone) { updateAxisLine(); renderRays(); }
+  });
+
+  // ± buttons for fine-tuning axis bearing
+  document.getElementById('axisDown').addEventListener('click', () => {
+    axisBearing = parseFloat(((axisBearing - 0.5 + 360) % 360).toFixed(1));
+    document.getElementById('axisSlider').value = axisBearing;
+    syncAxisUI();
+    if (precompDone) { updateAxisLine(); renderRays(); }
+  });
+  document.getElementById('axisUp').addEventListener('click', () => {
+    axisBearing = parseFloat(((axisBearing + 0.5) % 360).toFixed(1));
+    document.getElementById('axisSlider').value = axisBearing;
+    syncAxisUI();
+    if (precompDone) { updateAxisLine(); renderRays(); }
+  });
+
+  startPrecompute();
+});
+
+// ── SYNC AXIS UI TEXT ────────────────────────────────────────────────────────
+function syncAxisUI() {
+  document.getElementById('axisVal').textContent = axisBearing.toFixed(1);
+  const opp = (axisBearing + 180) % 360;
+  document.getElementById('hengeAxisNote').textContent =
+    `Axis ${axisBearing.toFixed(1)}\u00b0 / ${opp.toFixed(1)}\u00b0 \u00b7 Elev <10\u00b0 \u00b7 Click to zoom`;
+}
+
+// ── AXIS LINE ON MAP ─────────────────────────────────────────────────────────
+// Draws a full through-line (bearing AND opposite) in light blue.
+// The far tip has an invisible draggable marker so the user can rotate by dragging.
+function updateAxisLine() {
+  if (axisLine)        { axisLine.remove();        axisLine = null; }
+  if (axisDragMarker)  { axisDragMarker.remove();   axisDragMarker = null; }
+
+  const [la1, lo1] = destPt(cLat, cLon, axisBearing, rayKm);
+  const [la2, lo2] = destPt(cLat, cLon, (axisBearing + 180) % 360, rayKm);
+
+  // The blue axis line — drawn through the full diameter (both directions)
+  axisLine = L.polyline([[la2, lo2], [cLat, cLon], [la1, lo1]], {
+    color: '#7dd3fc',    /* light blue — matches --blue */
+    weight: 2.5,
+    opacity: 0.85,
+    dashArray: '6 4',   /* dashed to distinguish from sun rays */
+    interactive: false
+  }).addTo(_map);
+
+  // Invisible draggable marker at the "forward" tip for rotation
+  // Uses a tiny transparent icon so it doesn't visually clutter the map
+  const dragIcon = L.divIcon({
+    className: '',
+    html: '<div style="width:18px;height:18px;cursor:grab;border-radius:50%;background:rgba(125,211,252,0.25);border:1.5px solid #7dd3fc;margin:-9px 0 0 -9px"></div>',
+    iconSize: [0, 0], iconAnchor: [0, 0]
+  });
+
+  axisDragMarker = L.marker([la1, lo1], { icon: dragIcon, draggable: true, zIndexOffset: 1000 }).addTo(_map);
+
+  axisDragMarker.on('drag', function(e) {
+    const { lat, lng } = e.latlng;
+    // Calculate bearing from origin to dragged position
+    const dLat = toRad(lat - cLat);
+    const dLon = toRad(lng - cLon);
+    const y = Math.sin(dLon) * Math.cos(toRad(lat));
+    const x = Math.cos(toRad(cLat)) * Math.sin(toRad(lat)) - Math.sin(toRad(cLat)) * Math.cos(toRad(lat)) * Math.cos(dLon);
+    let brg = (toDeg(Math.atan2(y, x)) + 360) % 360;
+    axisBearing = parseFloat(brg.toFixed(1));
+    document.getElementById('axisSlider').value = axisBearing;
+    syncAxisUI();
+    // Redraw line in real-time while dragging (lightweight, no ray rerender)
+    if (axisLine) { axisLine.remove(); axisLine = null; }
+    const [nl1, no1] = destPt(cLat, cLon, axisBearing, rayKm);
+    const [nl2, no2] = destPt(cLat, cLon, (axisBearing + 180) % 360, rayKm);
+    axisLine = L.polyline([[nl2, no2],[cLat, cLon],[nl1, no1]], {
+      color: '#7dd3fc', weight: 2.5, opacity: 0.85, dashArray: '6 4', interactive: false
+    }).addTo(_map);
+  });
+
+  // Re-render rays after drag ends (heavier operation)
+  axisDragMarker.on('dragend', () => {
+    if (precompDone) { updateAxisLine(); renderRays(); }
+  });
+}
+
+// ── PRECOMPUTE: all 2026 at 1-minute intervals ───────────────────────────────
+function startPrecompute() {
+  precompDone = false;
+  allData = []; dataByDay = [];
+  const ov = document.getElementById('loading');
+  ov.classList.add('on');
+  document.getElementById('loadText').textContent = 'LOADING 2026\u2026';
+  document.getElementById('loadSub').textContent  = 'CALCULATING SOLAR POSITIONS AT 1-MINUTE INTERVALS';
+  document.getElementById('load-bar').style.width = '0%';
+
+  const CHUNK = 3;
+  let doy0 = 0;
+
+  function processChunk() {
+    const end = Math.min(doy0 + CHUNK, 365);
+    for (let d = doy0; d < end; d++) {
+      const dayArr = [];
+      // Iterate every UTC minute of this UTC day (d=0 = Jan 1 UTC)
+      const dayStartUTC = d * 1440; // total UTC minutes since 2026-01-01
+      for (let m = 0; m < 1440; m++) {
+        const utcMin = dayStartUTC + m;
+        const p = solarPosUTC(utcMin, cLat, cLon);
+        if (p.alt > 0) {
+          // Build the date label from the UTC date (not local Date object)
+          const utcMs  = EPOCH_2026_UTC + utcMin * 60000;
+          const utcDate = new Date(utcMs);
+          const dateStr = `2026-${pad(utcDate.getUTCMonth()+1)}-${pad(utcDate.getUTCDate())}`;
+          const timeStr = utcMinToETStr(m, d); // convert UTC min-of-day to ET
+          dayArr.push({
+            az:    p.az,
+            elev:  p.alt,
+            doy0:  d,
+            dtStr: `${dateStr}  ${timeStr}`
+          });
+        }
+      }
+      dataByDay[d] = dayArr;
+      allData = allData.concat(dayArr);
+    }
+    doy0 = end;
+    document.getElementById('load-bar').style.width = Math.round(doy0/365*100) + '%';
+    document.getElementById('loadSub').textContent =
+      `DAY ${doy0} / 365 \u2014 ${allData.length.toLocaleString()} POSITIONS`;
+
+    if (doy0 < 365) {
+      requestIdleCallback(processChunk, { timeout: 50 });
+    } else {
+      precompDone = true;
+      document.getElementById('loadText').textContent = 'RENDERING\u2026';
+      document.getElementById('loadSub').textContent  = '';
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        syncAxisUI();
+        updateAxisLine();
+        renderRays();
+        ov.classList.remove('on');
+      }));
+    }
+  }
+  requestIdleCallback(processChunk, { timeout: 50 });
+}
+
+// ── AM / PM MAP LABELS ───────────────────────────────────────────────────────
+// Places very faint "AM" and "PM" text labels on the map just beyond the outer
+// edge of the ray field. AM (morning/east rays) goes east of origin; PM goes west.
+// Uses the current ray length + a small extra offset so labels clear the rays.
+function updateAMPMLabels() {
+  if (amLabel) { amLabel.remove(); amLabel = null; }
+  if (pmLabel) { pmLabel.remove(); pmLabel = null; }
+
+  const offset = rayKm * 1.18;  // just outside the ray tips
+  const [laE, loE] = destPt(cLat, cLon, 90,  offset);  // east → AM (sunrise)
+  const [laW, loW] = destPt(cLat, cLon, 270, offset);  // west → PM (sunset)
+
+  const style = `
+    font-family:'Bebas Neue',sans-serif;
+    font-size:1.05rem;
+    letter-spacing:0.18em;
+    color:rgba(255,255,255,0.5);
+    pointer-events:none;
+    user-select:none;
+    white-space:nowrap;
+  `;
+
+  const amIcon = L.divIcon({
+    className: '',
+    html: `<div style="${style}">AM</div>`,
+    iconSize: [0,0], iconAnchor: [-4, 10]   // anchor left of text center
+  });
+  const pmIcon = L.divIcon({
+    className: '',
+    html: `<div style="${style}">PM</div>`,
+    iconSize: [0,0], iconAnchor: [36, 10]   // anchor right of text center
+  });
+
+  amLabel = L.marker([laE, loE], { icon: amIcon, interactive: false, zIndexOffset: -100 }).addTo(_map);
+  pmLabel = L.marker([laW, loW], { icon: pmIcon, interactive: false, zIndexOffset: -100 }).addTo(_map);
+}
+
+// ── RENDER RAYS ──────────────────────────────────────────────────────────────
+// Draws all daytime sun rays colored by elevation.
+// Henge candidates = rays matching current street axis bearing +-HENGE_TOL AND elev <10deg.
+function renderRays() {
+  rayLayers.forEach(l => l.remove());
+  rayLayers = [];
+  if (originPin) originPin.remove();
+
+  const source = curDay === 0 ? allData : (dataByDay[curDay - 1] || []);
+  const hengeItems = [];
+  let minE = Infinity, maxE = -Infinity;
+
+  source.forEach(d => {
+    const color   = elevColor(d.elev);
+    const opacity = 0.15 + 0.65 * (1 - d.elev / 90);
+    const weight  = d.elev < 10 ? 1.6 : 0.6;
+    const [la2, lo2] = destPt(cLat, cLon, d.az, rayKm);
+
+    // All daytime rays always drawn
+    const ln = L.polyline([[cLat, cLon],[la2, lo2]], {
+      color, weight, opacity, interactive: false
+    }).addTo(_map);
+    rayLayers.push(ln);
+
+    if (d.elev < minE) minE = d.elev;
+    if (d.elev > maxE) maxE = d.elev;
+
+    // Henge: matches the user-set street axis bearing ±HENGE_TOL, low elevation
+    if (isHengeAz(d.az, axisBearing) && d.elev <= HENGE_ELEV_MAX) {
+      const lbl = `${d.dtStr}\nAz ${d.az.toFixed(2)}\u00b0  \u00b7  Elev ${d.elev.toFixed(2)}\u00b0`;
+      hengeItems.push({ d, lbl, la2, lo2 });
+
+      const dot = L.circleMarker([la2, lo2], {
+        radius: 4, color: '#ff2200', fillColor: '#ff6b35',
+        fillOpacity: 0.95, weight: 1.5, interactive: true
+      }).bindTooltip(lbl, { sticky: true, className: 'htt' }).addTo(_map);
+      rayLayers.push(dot);
+    }
+  });
+
+  // Origin pin, always on top
+  originPin = L.circleMarker([cLat, cLon], {
+    radius: 7, color: '#ffd166', fillColor: '#ffffff', fillOpacity: 1, weight: 2.5
+  }).addTo(_map);
+
+  // Re-add the axis line on top of rays (so it stays visible)
+  if (axisLine)       { axisLine.remove();       axisLine = null; }
+  if (axisDragMarker) { axisDragMarker.remove();  axisDragMarker = null; }
+  updateAxisLine();
+  updateAMPMLabels();
+
+  // Stats
+  document.getElementById('s-shown').textContent = source.length.toLocaleString();
+  document.getElementById('s-henge').textContent = hengeItems.length;
+  document.getElementById('s-elev').textContent  = source.length
+    ? `${minE.toFixed(1)}\u00b0\u2013${maxE.toFixed(1)}\u00b0` : '\u2014';
+
+  // Henge list
+  const list = document.getElementById('hengeList');
+  list.innerHTML = '';
+  if (!hengeItems.length) {
+    list.innerHTML = '<div class="no-henge">None for current axis &amp; day.</div>';
+    return;
+  }
+  hengeItems.forEach(h => {
+    const el = document.createElement('div');
+    el.className = 'henge-item';
+    el.innerHTML = `<span class="ht">${h.d.dtStr}</span><br>` +
+      `<span class="haz">Az ${h.d.az.toFixed(2)}\u00b0</span> &middot; ` +
+      `Elev <span style="color:#ffd166">${h.d.elev.toFixed(2)}\u00b0</span>`;
+    el.addEventListener('click', () => _map.setView([h.la2, h.lo2], 15));
+    list.appendChild(el);
+  });
+}
+</script>
+
+<style>
+/* leaflet crosshair thing */
+.leaflet-container { cursor: crosshair !important; }
+.leaflet-grab, .leaflet-dragging .leaflet-grab { cursor: crosshair !important; }
+
+/* ── HENGE TOOLTIP ───────────────────────────────────────────────────────────
+   Popup on hovering a henge dot.
+   background: fill | border: outline | color: text
+   white-space:pre preserves the \n newline in the label string.
+   ::before hides the Leaflet tooltip arrow.
+────────────────────────────────────────────────────────────────────────── */
+.htt.leaflet-tooltip {
+  background: #0a0a0f !important;
+  border: 1px solid #ff6b35 !important;
+  color: #ffd166 !important;
+  font-family: 'Space Mono', monospace !important;
+  font-size: 0.68rem !important;
+  padding: 5px 9px !important;
+  border-radius: 2px !important;
+  box-shadow: 0 0 14px #ff6b3550 !important;
+  white-space: pre !important;
+}
+.htt.leaflet-tooltip::before { display: none !important; }
+</style>
+
+</body>
+</html>
