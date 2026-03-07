@@ -25,7 +25,6 @@
     --text: #e0e0e8;
     --muted: #666680;
     --blue: #7dd3fc;      /* street axis line color on map */
-    --sky: #2db8f8; /* slightly darker than the line*/
   }
 
   /* ── PAGE SHELL ─────────────────────────────────────────────────────────── */
@@ -104,7 +103,7 @@
   /* ── LEGEND ─────────────────────────────────────────────────────────────── */
   .legend-bar {
     height: 12px; border-radius: 2px;
-    background: linear-gradient(to right, #ff2200, #ff6b35, #ffaa00, #ffd166, #7dd3fc, #7dd3fc);
+    background: linear-gradient(to right, #ff2200, #ff6b35, #ffaa00, #ffd166);
     border: 1px solid #333; margin-bottom: 3px;
   }
   .legend-labels { display: flex; justify-content: space-between; font-size: 0.58rem; color: var(--muted); }
@@ -676,7 +675,7 @@ function utcMinToETStr(utcMinOfDay, doy0) {
 }
 
 function elevColor(e) {
-  const t = Math.min(e / 45, 1);
+  const t = Math.min(e / 45, 1); 
   return `rgb(255,${Math.round(34 + 175*t)},0)`;
 }
 
@@ -949,8 +948,8 @@ function renderRays() {
   source.forEach(d => {
     // trying to add a noon indicator but ain't showin up
     const color   = d.tmStr != '12:00 EDT' ?  elevColor(d.elev) : '#FFFFFF' ;
-    const opacity = d.timeStr != '12:00 EDT' ? .15 + 0.65 * (1 - d.elev / 90) : 1;
-    const weight  = d.elev < 10 ? d.tmStr == '12:00 EDT' ? 3 : 1.6 : 0.6;    
+    const opacity = d.tmStr != '12:00 EDT' ? .15 + 0.65 * (1 - d.elev / 90) : 1;
+    const weight  = d.elev < 10 ? d.tmStr == '12:00 EDT' ? 3 : 1.0 : 0.6;    
     const [la2, lo2] = destPt(cLat, cLon, d.az, rayKm);
     console.log(d.tmStr, d.elev, opacity);
     // All daytime rays always drawn
