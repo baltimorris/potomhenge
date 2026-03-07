@@ -25,6 +25,7 @@
     --text: #e0e0e8;
     --muted: #666680;
     --blue: #7dd3fc;      /* street axis line color on map */
+    --sky: #2db8f8; /* slightly darker than the line*/
   }
 
   /* ── PAGE SHELL ─────────────────────────────────────────────────────────── */
@@ -103,7 +104,7 @@
   /* ── LEGEND ─────────────────────────────────────────────────────────────── */
   .legend-bar {
     height: 12px; border-radius: 2px;
-    background: linear-gradient(to right, #ff2200, #ff6b35, #ffaa00, #ffd166);
+    background: linear-gradient(to right, #ff2200, #ff6b35, #ffaa00, #ffd166, #7dd3fc, #7dd3fc);
     border: 1px solid #333; margin-bottom: 3px;
   }
   .legend-labels { display: flex; justify-content: space-between; font-size: 0.58rem; color: var(--muted); }
@@ -138,7 +139,7 @@
 
   /* ── STREET AXIS SECTION ────────────────────────────────────────────────────
      The light-blue azimuth readout box showing the current street angle.
-     The ±/− buttons step the angle in 0.5° increments.
+     The +-/− buttons step the angle in 0.5° increments.
      The drag-hint note below the slider explains how to use the line on the map.
   ─────────────────────────────────────────────────────────────────────────── */
   .axis-angle-box {
@@ -453,8 +454,8 @@
       <div class="faq-item">
         <div class="faq-q"><span class="faq-arrow">&#9658;</span>How precise are the henge times?</div>
         <div class="faq-a">
-          Times are calculated at <strong>1-minute intervals</strong> for every day of 2026, using standard solar position equations accurate to roughly <strong>±0.5°</strong> in azimuth.
-          Henge candidates are flagged when the sun's azimuth is within <strong>±0.25°</strong> of your chosen street bearing AND elevation is below 10°.
+          Times are calculated at <strong>1-minute intervals</strong> for every day of 2026, using standard solar position equations accurate to roughly <strong>+-0.5°</strong> in azimuth.
+          Henge candidates are flagged when the sun's azimuth is within <strong>+-0.25°</strong> of your chosen street bearing AND elevation is below 10°.
           <br><br>
           All times are shown in <strong>Eastern Time (ET)</strong>, automatically accounting for EDT (UTC−4) from March 8 and EST (UTC−5) from November 1.
           <br><br>
@@ -561,7 +562,7 @@
       <div class="axis-drag-hint">
         The <span style="color:var(--blue)">blue line</span> shows your chosen street bearing.
         Drag its tip on the map to rotate it, or use the slider above.
-        Henge moments = rays matching this bearing ±0.25° and below 10° elevation.
+        Henge moments = rays matching this bearing +-0.25° and below 10° elevation.
       </div>
     </div>
 
@@ -569,7 +570,7 @@
       <h2>Color Scale</h2>
       <div class="legend-bar"></div>
       <div class="legend-labels"><span>0&deg; horizon</span><span>45&deg;+</span></div>
-      <div class="legend-note">Red = low elevation (henge-like)<br>Yellow = high elevation (midday)</div>
+      <div class="legend-note">Red = low elevation (henge-like)<br>Blue = high elevation (midday)</div>
     </div>
 
     <div>
@@ -623,7 +624,7 @@ document.querySelectorAll('.faq-q').forEach(q => {
 });
 
 // ── HENGE DETECTION SETTINGS ────────────────────────────────────────────────
-// Tolerance: a sun ray must be within ±HENGE_TOL degrees of the street axis
+// Tolerance: a sun ray must be within +-HENGE_TOL degrees of the street axis
 // bearing (or its opposite) to count as a henge candidate.
 const HENGE_TOL      = 0.25;  // degrees either side of the axis bearing
 const HENGE_ELEV_MAX = 10;    // max elevation (degrees above horizon) to qualify
@@ -687,7 +688,7 @@ function destPt(lat, lon, brg, km) {
   return [toDeg(la2), toDeg(lo2)];
 }
 
-// Returns true if az is within HENGE_TOL of the axis bearing OR its opposite (±180°)
+// Returns true if az is within HENGE_TOL of the axis bearing OR its opposite (+-180°)
 function isHengeAz(az, axisBearing) {
   const opp = (axisBearing + 180) % 360;
   function angDiff(a, b) { const d = Math.abs(a - b); return Math.min(d, 360 - d); }
@@ -754,7 +755,7 @@ window.addEventListener('load', () => {
     if (precompDone) { updateAxisLine(); renderRays(); }
   });
 
-  // ± buttons for fine-tuning axis bearing
+  // +- buttons for fine-tuning axis bearing
   document.getElementById('axisDown').addEventListener('click', () => {
     axisBearing = parseFloat(((axisBearing - 0.5 + 360) % 360).toFixed(1));
     document.getElementById('axisSlider').value = axisBearing;
@@ -866,7 +867,8 @@ function startPrecompute() {
             az:    p.az,
             elev:  p.alt,
             doy0:  d,
-            dtStr: `${dateStr}  ${timeStr}`
+            dtStr: `${dateStr}  ${timeStr}`,
+            tmStr: `${timeStr}`
           });
         }
       }
@@ -896,8 +898,8 @@ function startPrecompute() {
 }
 
 // ── AM / PM MAP LABELS ───────────────────────────────────────────────────────
-// Places very faint "AM" and "PM" text labels on the map just beyond the outer
-// edge of the ray field. AM (morning/east rays) goes east of origin; PM goes west.
+// Places very faint "Sunrise" and "Sunset" text labels on the map just beyond the outer
+// edge of the ray field. Sunrise (morning/east rays) goes east of origin; Sunset goes west.
 // Uses the current ray length + a small extra offset so labels clear the rays.
 function updateAMPMLabels() {
   if (amLabel) { amLabel.remove(); amLabel = null; }
@@ -919,12 +921,12 @@ function updateAMPMLabels() {
 
   const amIcon = L.divIcon({
     className: '',
-    html: `<div style="${style}">AM</div>`,
-    iconSize: [0,0], iconAnchor: [-4, 10]   // anchor left of text center
+    html: `<div style="${style}">SUNRISE</div>`,
+    iconSize: [0,0], iconAnchor: [-4, 10]  // anchor left of text center
   });
   const pmIcon = L.divIcon({
     className: '',
-    html: `<div style="${style}">PM</div>`,
+    html: `<div style="${style}">SUNSET</div>`,
     iconSize: [0,0], iconAnchor: [36, 10]   // anchor right of text center
   });
 
@@ -945,11 +947,12 @@ function renderRays() {
   let minE = Infinity, maxE = -Infinity;
 
   source.forEach(d => {
-    const color   = elevColor(d.elev);
-    const opacity = 0.15 + 0.65 * (1 - d.elev / 90);
-    const weight  = d.elev < 10 ? 1.6 : 0.6;
+    // trying to add a noon indicator but ain't showin up
+    const color   = d.tmStr != '12:00 EDT' ?  elevColor(d.elev) : '#FFFFFF' ;
+    const opacity = d.timeStr != '12:00 EDT' ? .15 + 0.65 * (1 - d.elev / 90) : 1;
+    const weight  = d.elev < 10 ? d.tmStr == '12:00 EDT' ? 3 : 1.6 : 0.6;    
     const [la2, lo2] = destPt(cLat, cLon, d.az, rayKm);
-
+    console.log(d.tmStr, d.elev, opacity);
     // All daytime rays always drawn
     const ln = L.polyline([[cLat, cLon],[la2, lo2]], {
       color, weight, opacity, interactive: false
@@ -959,7 +962,7 @@ function renderRays() {
     if (d.elev < minE) minE = d.elev;
     if (d.elev > maxE) maxE = d.elev;
 
-    // Henge: matches the user-set street axis bearing ±HENGE_TOL, low elevation
+    // Henge: matches the user-set street axis bearing +-HENGE_TOL, low elevation
     if (isHengeAz(d.az, axisBearing) && d.elev <= HENGE_ELEV_MAX) {
       const lbl = `${d.dtStr}\nAz ${d.az.toFixed(2)}\u00b0  \u00b7  Elev ${d.elev.toFixed(2)}\u00b0`;
       hengeItems.push({ d, lbl, la2, lo2 });
