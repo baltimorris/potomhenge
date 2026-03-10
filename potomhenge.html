@@ -345,6 +345,238 @@
     white-space: nowrap;
   }
   #faq-btn:hover { border-color: var(--blue); color: var(--blue); }
+
+  /* ── ACCESSIBILITY MODE ─────────────────────────────────────────────────── */
+  body.a11y { --muted: #9999bb; --border: #4a4a6a; font-size: 1.08rem; }
+  body.a11y label.field, body.a11y .range-val { font-size: 0.78rem; }
+  body.a11y .legend-labels, body.a11y .legend-note { font-size: 0.75rem; }
+  body.a11y .axis-drag-hint { font-size: 0.74rem; }
+  body.a11y .stat-row { font-size: 0.76rem; padding: 5px 0; }
+  body.a11y .henge-item { font-size: 0.74rem; padding: 7px 9px; }
+  body.a11y .no-henge { font-size: 0.74rem; }
+  body.a11y .coords-box { font-size: 0.82rem; }
+  body.a11y .faq-q { font-size: 0.84rem; padding: 14px 28px; }
+  body.a11y .faq-a { font-size: 0.8rem; }
+  body.a11y #modal .modal-body { font-size: 0.86rem; }
+  body.a11y .axis-angle-box .ang-val { font-size: 1.6rem; }
+  body.a11y .axis-angle-box button { width: 34px; height: 34px; font-size: 1.1rem; }
+  body.a11y input[type=range] { height: 20px; }
+  body.a11y header .sub { font-size: 0.8rem; }
+  body.a11y #click-hint { font-size: 0.75rem; padding: 7px 16px; }
+  body.a11y #dayDisplay { font-size: 1.3rem; }
+  #a11y-btn { font-family:'Space Mono',monospace; font-size:0.6rem; letter-spacing:0.06em;
+    background:#1a1a28; border:1px solid var(--border); color:var(--muted);
+    padding:3px 8px; cursor:pointer; border-radius:2px;
+    transition:border-color 0.15s,color 0.15s,background 0.15s;
+    align-self:center; white-space:nowrap; }
+  #a11y-btn:hover, #a11y-btn.active { border-color:var(--yellow); color:var(--yellow); background:#1f1a08; }
+  #lm-btn { font-family:'Space Mono',monospace; font-size:0.6rem; letter-spacing:0.06em;
+    background:#1a1a28; border:1px solid var(--border); color:var(--muted);
+    padding:3px 8px; cursor:pointer; border-radius:2px;
+    transition:border-color 0.15s,color 0.15s; align-self:center; white-space:nowrap; }
+  #lm-btn:hover { border-color:var(--yellow); color:var(--yellow); }
+
+  /* ── RAY HOVER TOOLTIP ───────────────────────────────────────────────────── */
+  #ray-tip { display:none; position:absolute; z-index:800;
+    background:#0a0a0f; border:1px solid var(--accent); color:var(--yellow);
+    font-family:'Space Mono',monospace; font-size:0.65rem; padding:5px 9px;
+    border-radius:2px; box-shadow:0 0 12px rgba(255,107,53,0.35);
+    pointer-events:none; white-space:pre; line-height:1.6; transform:translate(12px,-50%); }
+
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     MOBILE LAYOUT  (≤ 640px)
+     Strategy:
+       • Header shrinks; subtitle hidden; buttons become icon-only
+       • Sidebar hides off-screen; bottom sheet slides up from a ⚙ FAB
+       • Bottom sheet: 55vh tall, scrollable, draggable via handle
+       • Map fills remaining height; click-hint text shortened
+       • Ray-tip tooltip repositioned to top of screen on touch
+  ══════════════════════════════════════════════════════════════════════════ */
+  @media (max-width: 640px) {
+    /* Header ────────────────────────────────────────────────────────────── */
+    header {
+      padding: 8px 12px; gap: 8px; flex-wrap: nowrap;
+      align-items: center;
+    }
+    header h1 { font-size: 1.1rem; }
+    header .sub { display: none; }
+
+    /* Collapse button text to icons */
+    #faq-btn  { font-size: 0; padding: 6px 8px; border-radius: 50%; line-height:1; }
+    #faq-btn::before  { content: '?'; font-size: 0.75rem; }
+    #a11y-btn { font-size: 0; padding: 6px 8px; border-radius: 50%; }
+    #a11y-btn::before { content: 'A+'; font-size: 0.65rem; }
+    #lm-btn   { font-size: 0; padding: 6px 8px; border-radius: 50%; }
+    #lm-btn::before   { content: '🏘'; font-size: 0.85rem; }
+
+    /* Sidebar: hidden on mobile — replaced by bottom sheet */
+    .sidebar { display: none; }
+
+    /* Layout: column so map + sheet stack vertically */
+    .layout { flex-direction: column; }
+
+    /* Map fills all available space above the sheet tab */
+    #map-wrap { flex: 1; min-height: 0; }
+
+    /* Click hint: shorter text */
+    #click-hint { font-size: 0.52rem; padding: 4px 10px; bottom: 8px; }
+
+    /* ── BOTTOM SHEET ──────────────────────────────────────────────────── */
+    #sheet {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      height: 58vh;
+      background: var(--panel);
+      border-top: 1px solid var(--border);
+      border-radius: 12px 12px 0 0;
+      z-index: 600;
+      display: flex; flex-direction: column;
+      transform: translateY(calc(100% - 44px)); /* collapsed: only handle visible */
+      transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+      will-change: transform;
+    }
+    #sheet.open { transform: translateY(0); }
+
+    /* Drag handle bar */
+    #sheet-handle {
+      flex-shrink: 0;
+      height: 44px; display: flex; align-items: center;
+      justify-content: center; cursor: pointer; gap: 10px;
+      border-radius: 12px 12px 0 0;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      user-select: none;
+    }
+    #sheet-handle .pill {
+      width: 36px; height: 4px;
+      background: var(--border); border-radius: 2px;
+    }
+    #sheet-handle .sheet-label {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 0.85rem; letter-spacing: 0.12em;
+      color: var(--muted);
+    }
+    #sheet.open #sheet-handle .sheet-label { color: var(--accent); }
+
+    /* Scrollable content inside sheet */
+    #sheet-body {
+      flex: 1; overflow-y: auto; padding: 14px 16px 24px;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+
+    /* Sheet section headings inherit sidebar h2 style */
+    #sheet-body h2 {
+      font-family: 'Bebas Neue', sans-serif; font-size: 0.95rem;
+      letter-spacing: 0.1em; color: var(--accent);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 5px; margin-bottom: 2px;
+    }
+
+    /* Compact grid for sliders: 2-col on wider phones */
+    .sheet-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px;
+    }
+    .sheet-grid .full { grid-column: 1 / -1; }
+
+    /* Henge list in sheet: full height */
+    .henge-list { max-height: 160px; }
+
+    /* Stats rows smaller */
+    .stat-row { font-size: 0.58rem; }
+
+    /* Modal: full width on mobile */
+    #modal, #faq-modal { max-width: 100%; border-radius: 0; }
+    #modal-overlay, #faq-overlay { padding: 0; align-items: flex-end; }
+    #modal { border-radius: 12px 12px 0 0; max-height: 85vh; overflow-y: auto; }
+    #faq-modal { max-height: 92vh; border-radius: 12px 12px 0 0; }
+  }
+
+  /* ══ MOBILE (≤640px) ════════════════════════════════════════════════════════ */
+  @media (max-width: 640px) {
+    header { padding: 8px 12px; gap: 8px; flex-wrap: nowrap; align-items: center; }
+    header h1 { font-size: 1.1rem; }
+    header .sub { display: none; }
+    /* Collapse buttons to icon badges */
+    #faq-btn, #a11y-btn, #lm-btn { font-size: 0; padding: 6px 9px; border-radius: 50%; }
+    #faq-btn::before  { content: '?';  font-size: 0.8rem; }
+    #a11y-btn::before { content: 'A+'; font-size: 0.65rem; }
+    #lm-btn::before   { content: '🏘'; font-size: 0.9rem; }
+    /* Hide desktop sidebar */
+    .sidebar { display: none; }
+    /* Map fills full available space */
+    .layout { flex-direction: column; }
+    #map-wrap { flex: 1; min-height: 0; }
+    /* Shorten click hint */
+    #click-hint { font-size: 0.52rem; padding: 4px 10px; bottom: 52px; }
+    /* Push Leaflet attribution above the sheet handle */
+    .leaflet-bottom.leaflet-right { bottom: 48px !important; z-index: 400 !important; }
+    /* ── Bottom sheet ────────────────────────────────────────────────────── */
+    #sheet {
+      position: fixed; bottom: 0; left: 0; right: 0; height: 58vh;
+      background: var(--panel); border-top: 1px solid var(--border);
+      border-radius: 12px 12px 0 0; z-index: 600;
+      display: flex; flex-direction: column;
+      transform: translateY(calc(100% - 44px));
+      transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
+      will-change: transform;
+    }
+    #sheet.open { transform: translateY(0); }
+    #sheet-handle {
+      flex-shrink: 0; height: 44px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; gap: 10px; border-radius: 12px 12px 0 0;
+      background: var(--panel); border-bottom: 1px solid transparent;
+      user-select: none; -webkit-tap-highlight-color: transparent;
+    }
+    #sheet.open #sheet-handle { border-bottom-color: var(--border); }
+    #sheet-handle .pill { width: 36px; height: 4px; background: var(--border); border-radius: 2px; }
+    #sheet-handle .sheet-label {
+      font-family: 'Bebas Neue', sans-serif; font-size: 0.85rem;
+      letter-spacing: 0.15em; color: var(--muted);
+    }
+    #sheet.open #sheet-handle .sheet-label { color: var(--accent); }
+    #sheet-body { flex: 1; overflow-y: auto; padding: 14px 16px 24px; display: flex; flex-direction: column; gap: 14px; }
+    #sheet-body h2 {
+      font-family: 'Bebas Neue', sans-serif; font-size: 0.95rem;
+      letter-spacing: 0.1em; color: var(--accent);
+      border-bottom: 1px solid var(--border); padding-bottom: 5px; margin-bottom: 2px;
+    }
+    .sheet-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+    .sheet-grid .full { grid-column: 1 / -1; }
+    .henge-list { max-height: 150px; }
+    /* Modals: slide up from bottom */
+    #modal-overlay, #faq-overlay { padding: 0; align-items: flex-end; }
+    #modal { border-radius: 12px 12px 0 0; max-height: 85vh; overflow-y: auto; max-width: 100%; }
+    #faq-modal { border-radius: 12px 12px 0 0; max-height: 92vh; max-width: 100%; }
+  }
+  /* Desktop: hide the sheet */
+  @media (min-width: 641px) {
+    #sheet { display: none; }
+  }
+
+  /* ── LANDMARK TOOLTIP ──────────────────────────────────────────────────── */
+  .lm-tip.leaflet-tooltip {
+    background: #0e0e18 !important; border: 1px solid #ffd166 !important;
+    color: #e0e0e8 !important; font-family: 'Space Mono', monospace !important;
+    font-size: 0.68rem !important; padding: 5px 9px !important;
+    border-radius: 2px !important; box-shadow: 0 0 10px rgba(255,209,102,0.25) !important;
+    max-width: 200px !important; white-space: normal !important;
+    pointer-events: none !important;
+  }
+  .lm-tip.leaflet-tooltip::before { display: none !important; }
+
+  /* ── HENGE TOOLTIP ──────────────────────────────────────────────────────── */
+  .htt.leaflet-tooltip {
+    background: #0a0a0f !important; border: 1px solid #ff6b35 !important;
+    color: #ffd166 !important; font-family: 'Space Mono', monospace !important;
+    font-size: 0.68rem !important; padding: 5px 9px !important;
+    border-radius: 2px !important; white-space: pre !important;
+  }
+  .htt.leaflet-tooltip::before { display: none !important; }
+
+  /* ── LEAFLET OVERRIDES ───────────────────────────────────────────────────── */
+  .leaflet-container { cursor: crosshair !important; }
+  .leaflet-grab, .leaflet-dragging .leaflet-grab { cursor: crosshair !important; }
 </style>
 </head>
 <body>
@@ -510,6 +742,8 @@
   <h1><img src="dc_sun.png" alt="Potomhenge sun" style="height:1.3em;vertical-align:middle;margin-right:8px;margin-bottom:3px"> Potomhenge</h1>
   <span class="sub">WHERE THE SUN LINES UP WITH WASHINGTON &middot; &#169;&#65039; DREW MORRIS &middot; 2026</span>
   <button id="faq-btn">? FAQ</button>
+  <button id="a11y-btn">A+</button>
+  <button id="lm-btn">&#127968; LANDMARKS</button>
 </header>
 
 <div class="layout">
@@ -520,10 +754,10 @@
       <div id="load-track"><div id="load-bar"></div></div>
       <div class="sub2" id="loadSub">CALCULATING SOLAR POSITIONS AT 1-MINUTE INTERVALS</div>
     </div>
+    <div id="ray-tip"></div>
     <div id="click-hint">CLICK MAP TO MOVE ORIGIN &nbsp;|&nbsp; DRAG BLUE LINE TIP TO ROTATE AXIS</div>
   </div>
-
-  <div class="sidebar">
+<div class="sidebar">
 
     <div>
       <h2>Origin</h2>
@@ -537,9 +771,8 @@
       <h2>Day</h2>
       <div id="dayDisplay" class="all-year">ALL YEAR</div>
       <label class="field">Far Left = all year &nbsp;&mdash;&nbsp; slide for single day</label>
-      <input type="range" id="daySlider" min="0" max="365" step="1" value="0">
+      <input type="range" id="daySlider" min="0" max="365" step="1">
     </div>
-
     <div>
       <h2>Ray Length</h2>
       <label class="field">Distance</label>
@@ -589,6 +822,64 @@
 
   </div>
 </div>
+</div>
+
+
+<!-- ── MOBILE BOTTOM SHEET ─────────────────────────────────────────────────── -->
+<div id="sheet">
+  <div id="sheet-handle" role="button" aria-label="Toggle controls panel">
+    <div class="pill"></div>
+    <span class="sheet-label">CONTROLS</span>
+    <div class="pill"></div>
+  </div>
+  <div id="sheet-body">
+
+    <div class="sheet-grid">
+      <div class="full">
+        <h2>Origin</h2>
+        <div class="coords-box" style="font-size:0.72rem">
+          <div><span class="cl">LAT</span><span id="m-dLat">38.90730</span></div>
+          <div><span class="cl">LON</span><span id="m-dLon">-77.03690</span></div>
+        </div>
+      </div>
+      <div class="full">
+        <h2>Day</h2>
+        <div id="m-dayDisplay" class="all-year" style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--yellow);letter-spacing:0.1em;text-align:center;margin-bottom:4px">ALL YEAR</div>
+        <label class="field">Slide for single day</label>
+        <input type="range" id="m-daySlider" min="0" max="365" step="1" value="0" style="width:100%">
+      </div>
+      <div>
+        <h2>Ray Length</h2>
+        <input type="range" id="m-rayLen" min="0.5" max="20" step="0.5" value="5" style="width:100%">
+        <div class="range-val" id="m-rayLenVal">5.0 km</div>
+      </div>
+      <div>
+        <h2>Axis</h2>
+        <div class="axis-angle-box" style="margin-bottom:4px">
+          <button id="m-axisDown">&#8722;</button>
+          <span class="ang-val"><span id="m-axisVal">90.0</span>&deg;</span>
+          <button id="m-axisUp">+</button>
+        </div>
+        <input type="range" id="m-axisSlider" min="0" max="360" step="0.5" value="90" style="width:100%">
+      </div>
+    </div>
+
+    <div>
+      <h2>Stats</h2>
+      <div class="stat-row"><span>Rays shown</span><span id="m-s-shown">&mdash;</span></div>
+      <div class="stat-row"><span>Henge candidates</span><span id="m-s-henge">&mdash;</span></div>
+      <div class="stat-row"><span>Elevation range</span><span id="m-s-elev">&mdash;</span></div>
+    </div>
+
+    <div>
+      <h2>Henge Moments</h2>
+      <div style="font-size:0.58rem;color:var(--muted);margin-bottom:5px">Elev &lt;10&deg; &middot; Tap to zoom</div>
+      <div class="henge-list" id="m-hengeList"></div>
+    </div>
+
+  </div>
+</div>
+
 
 <script>
 // ── MODAL ───────────────────────────────────────────────────────────────────
@@ -621,6 +912,114 @@ document.querySelectorAll('.faq-q').forEach(q => {
     if (!wasOpen) item.classList.add('open');
   });
 });
+
+// ── ACCESSIBILITY TOGGLE ─────────────────────────────────────────────────────
+document.getElementById('a11y-btn').addEventListener('click', function() {
+  document.body.classList.toggle('a11y'); this.classList.toggle('active');
+});
+
+// ── DC LANDMARKS ─────────────────────────────────────────────────────────────
+const DC_LANDMARKS = [
+  {name:'Washington Monument', lat:38.8895,lon:-77.0353,icon:'🗼',note:'Open Mall sightlines. Ideal henge viewpoint!'},
+  {name:'Lincoln Memorial',    lat:38.8893,lon:-77.0502,icon:'🏛',note:'Faces east down the Mall. E–W henge along reflecting pool.'},
+  {name:'U.S. Capitol (West)', lat:38.8899,lon:-77.0091,icon:'🏛',note:'West steps face the Mall toward Lincoln.'},
+  {name:'Jefferson Memorial',  lat:38.8814,lon:-77.0365,icon:'🌸',note:'Tidal Basin. Open views in most directions, great year-round.'},
+  {name:'Kennedy Center',      lat:38.8957,lon:-77.0565,icon:'🎭',note:'Normslly excellent views, but the entire building unfortunately fell into the river in 2025. Woe!'},
+  {name:'Georgetown Waterfront',lat:38.9024,lon:-77.0605,icon:'⚓',note:'Good sunset views in winter when light peeks through Rosslyn and Roosevelt Island.'},
+  {name:'Dupont Circle',       lat:38.9096,lon:-77.0434,icon:'⭕',note:'The "Fruit Loop" has some good E-W views along P St NW, and Mass Ave too during late Spring.'},
+  {name:'Logan Circle',        lat:38.9096,lon:-77.0296,icon:'⭕',note:'P St NW runs east-west; Rhode Island Ave has one hell of a sunrise angle in summer.'},
+  {name:'Eastern Market',      lat:38.8842,lon:-76.9954,icon:'🏪',note:'Good E-W coverage during equinoctes, but the best alignment is along Pennsylvania and South Carolina Aves at many different points in the year!'},
+  {name:'Nationals Park',      lat:38.8730,lon:-77.0074,icon:'⚾',note:'Ballparks are designed to be as out of direct sunlight as possible, but if you get a nosebleed seat, you can get some gnarly sunsets.'},
+  {name:'National Cathedral',  lat:38.9306,lon:-77.0708,icon:'⛪',note:'The benefit being its hilltop position in Upper NW rather than its axial angle.'},
+  {name:'Pentagon',            lat:38.8709,lon:-77.0557,icon:'⬠',note:'Across the river. Open horizon multiple directions.'},
+  {name:'Frederick Douglass Bridge',            lat:38.8671,lon:-77.0020,icon:'🌉',note:'EOTR has some of the best city views possible, and the Frederick Douglass Bridge is a great starting point.'},
+  {name:'Basilica / Immaculate Conception',  lat:38.9320,lon:-77.0004,icon:'⛪',note:'Elevated position in Upper NE makes up for the lack of good street alignment.'},
+  {name:'Hopscotch Bridge',  lat:38.9001,lon:-77.0051,icon:'🛤️',note:'Any E-W street will align on an equinox, but the Hopscotch Bridge has height that improves visibility.'},
+  {name:'16th & Columbia NW',  lat:38.9266,lon:-77.0365,icon:'⛪',note:'Late in the year, Columbia Road becomes a solar superhighway to light up the nexus of churches at the base of Mt Pleasant.'},
+];
+let landmarkMarkers=[], landmarksVisible=false;
+let _openLmTooltip = null;  // track open persistent tooltip
+function showLandmarks() {
+  DC_LANDMARKS.forEach(lm => {
+    const icon=L.divIcon({className:'',
+      html:`<div style="font-size:1.1rem;line-height:1;filter:drop-shadow(0 0 3px rgba(0,0,0,0.9));cursor:pointer">${lm.icon}</div>`,
+      iconSize:[24,24],iconAnchor:[12,12]});
+    const tt = L.tooltip({
+      permanent: false, className: 'lm-tip', direction: 'top', offset: [0,-10],
+      opacity: 1
+    }).setContent(`<strong>${lm.name}</strong><br><span style="font-size:0.65rem;color:#aaa">${lm.note}</span>`);
+    const m = L.marker([lm.lat,lm.lon],{icon,zIndexOffset:500})
+      .bindTooltip(tt)
+      .addTo(_map);
+    // On click: show tooltip persistently, then move origin
+    m.on('click', () => {
+      // Toggle: if this tooltip is already open, close it and move origin
+      if (_openLmTooltip === m) {
+        m.closeTooltip();
+        _openLmTooltip = null;
+      } else {
+        // Close previous
+        if (_openLmTooltip) _openLmTooltip.closeTooltip();
+        m.openTooltip();
+        _openLmTooltip = m;
+      }
+      cLat=lm.lat; cLon=lm.lon;
+      document.getElementById('dLat').textContent=cLat.toFixed(5);
+      document.getElementById('dLon').textContent=cLon.toFixed(5);
+      _map.setView([cLat,cLon],_map.getZoom());
+      startPrecompute();
+    });
+    landmarkMarkers.push(m);
+  });
+}
+function hideLandmarks() { landmarkMarkers.forEach(m=>m.remove()); landmarkMarkers=[]; }
+document.getElementById('lm-btn').addEventListener('click', function() {
+  landmarksVisible=!landmarksVisible;
+  if (landmarksVisible) { showLandmarks(); this.style.borderColor='var(--yellow)'; this.style.color='var(--yellow)'; }
+  else { hideLandmarks(); this.style.borderColor=''; this.style.color=''; }
+});
+
+// ── RAY HOVER (mouse + touch) ────────────────────────────────────────────────
+(function() {
+  const tipEl=document.getElementById('ray-tip'), mapEl=document.getElementById('map');
+  const THRESH_MOUSE=12, THRESH_TOUCH=30;
+  let tipPinned=false;
+
+  function findNearest(px, py, thresh) {
+    if (!_map||!rayTips.length) return null;
+    const rect=mapEl.getBoundingClientRect();
+    const mx=px-rect.left, my=py-rect.top;
+    let best=null, bd=Infinity;
+    for (let i=0;i<rayTips.length;i++) {
+      const t=rayTips[i], pt=_map.latLngToContainerPoint([t.la2,t.lo2]);
+      const d2=(pt.x-mx)**2+(pt.y-my)**2;
+      if (d2<bd){bd=d2;best=t;}
+    }
+    return (best&&Math.sqrt(bd)<=thresh) ? {t:best,mx,my} : null;
+  }
+
+  function showTip(t, mx, my) {
+    const rect=mapEl.getBoundingClientRect();
+    const deg='\u00b0', dot='\u00b7';
+    tipEl.textContent=t.dtStr+'\nAz '+t.az.toFixed(1)+deg+'  '+dot+'  Elev '+t.elev.toFixed(1)+deg;
+    tipEl.style.left=Math.min(mx+12,rect.width-170)+'px';
+    tipEl.style.top=my+'px'; tipEl.style.display='block';
+  }
+
+  mapEl.addEventListener('mousemove', function(e) {
+    if (tipPinned) return;
+    const hit=findNearest(e.clientX,e.clientY,THRESH_MOUSE);
+    if (hit) showTip(hit.t,hit.mx,hit.my); else tipEl.style.display='none';
+  });
+  mapEl.addEventListener('mouseleave', ()=>{ if(!tipPinned) tipEl.style.display='none'; });
+
+  mapEl.addEventListener('touchend', function(e) {
+    const touch=e.changedTouches[0];
+    const hit=findNearest(touch.clientX,touch.clientY,THRESH_TOUCH);
+    if (hit) { showTip(hit.t,hit.mx,hit.my); tipPinned=true; e.stopPropagation(); }
+    else { tipEl.style.display='none'; tipPinned=false; }
+  });
+})();
 
 // ── HENGE DETECTION SETTINGS ────────────────────────────────────────────────
 // Tolerance: a sun ray must be within +-HENGE_TOL degrees of the street axis
@@ -713,7 +1112,9 @@ let axisBearing = 90;   // current street axis bearing in degrees (0–360)
 let allData    = [];    // all precomputed daytime-minute positions, full year
 let dataByDay  = [];    // dataByDay[doy0] = positions for that day (0-indexed)
 let precompDone = false;
-let amLabel = null, pmLabel = null;  // AM/PM map overlay labels
+let amLabel = null, pmLabel = null;
+let rayTips = [];
+let _hengeItems = [];  // last rendered henge data, for mobile list
 
 // ── INIT ────────────────────────────────────────────────────────────────────
 window.addEventListener('load', () => {
@@ -730,6 +1131,24 @@ window.addEventListener('load', () => {
     document.getElementById('dLon').textContent = cLon.toFixed(5);
     startPrecompute();
   });
+
+  // Set day slider to current day of year
+  (function() {
+    const now = new Date();
+    const start2026 = new Date(2026, 0, 1);
+    const doy = Math.round((now - start2026) / 86400000) + 1;
+    const clampedDoy = Math.max(0, Math.min(365, doy));
+    curDay = clampedDoy;
+    document.getElementById('daySlider').value = clampedDoy;
+    const mds = document.getElementById('m-daySlider'); if(mds) mds.value = clampedDoy;
+    const disp = document.getElementById('dayDisplay');
+    if (clampedDoy > 0) {
+      const label = doyToDate(clampedDoy).toUpperCase();
+      disp.textContent = label; disp.className = '';
+      const md = document.getElementById('m-dayDisplay');
+      if (md) { md.textContent = label; md.className = ''; }
+    }
+  })();
 
   // Day slider
   document.getElementById('daySlider').addEventListener('input', function() {
@@ -933,39 +1352,37 @@ function updateAMPMLabels() {
   pmLabel = L.marker([laW, loW], { icon: pmIcon, interactive: false, zIndexOffset: -100 }).addTo(_map);
 }
 
+
 // ── RENDER RAYS ──────────────────────────────────────────────────────────────
-// Draws all daytime sun rays colored by elevation.
-// Henge candidates = rays matching current street axis bearing +-HENGE_TOL AND elev <10deg.
 function renderRays() {
   rayLayers.forEach(l => l.remove());
-  rayLayers = [];
+  rayLayers = []; rayTips = [];
   if (originPin) originPin.remove();
 
   const source = curDay === 0 ? allData : (dataByDay[curDay - 1] || []);
-  const hengeItems = [];
+  const hengeItems = []; _hengeItems = [];
   let minE = Infinity, maxE = -Infinity;
 
   source.forEach(d => {
-    // trying to add a noon indicator but ain't showin up
-    const color   = d.tmStr != '12:00 EDT' ?  elevColor(d.elev) : '#FFFFFF' ;
-    const opacity = d.tmStr != '12:00 EDT' ? .15 + 0.65 * (1 - d.elev / 90) : 1;
-    const weight  = d.elev < 10 ? d.tmStr == '12:00 EDT' ? 3 : 1.0 : 0.6;    
+    const isNoon = d.tmStr.startsWith('12:1');
+    const color   = isNoon ? '#ffffff' : elevColor(d.elev);
+    const opacity = isNoon ? 0.55 : 0.15 + 0.65 * (1 - d.elev / 90);
+    const weight  = isNoon ? 1.8 : (d.elev < 10 ? 1.0 : 0.6);
     const [la2, lo2] = destPt(cLat, cLon, d.az, rayKm);
-    console.log(d.tmStr, d.elev, opacity);
-    // All daytime rays always drawn
+
     const ln = L.polyline([[cLat, cLon],[la2, lo2]], {
       color, weight, opacity, interactive: false
     }).addTo(_map);
     rayLayers.push(ln);
+    rayTips.push({ az: d.az, elev: d.elev, dtStr: d.dtStr, la2, lo2 });
 
     if (d.elev < minE) minE = d.elev;
     if (d.elev > maxE) maxE = d.elev;
 
-    // Henge: matches the user-set street axis bearing +-HENGE_TOL, low elevation
+
     if (isHengeAz(d.az, axisBearing) && d.elev <= HENGE_ELEV_MAX) {
       const lbl = `${d.dtStr}\nAz ${d.az.toFixed(2)}\u00b0  \u00b7  Elev ${d.elev.toFixed(2)}\u00b0`;
-      hengeItems.push({ d, lbl, la2, lo2 });
-
+      hengeItems.push({ d, lbl, la2, lo2 }); _hengeItems.push({ d, lbl, la2, lo2 });
       const dot = L.circleMarker([la2, lo2], {
         radius: 4, color: '#ff2200', fillColor: '#ff6b35',
         fillOpacity: 0.95, weight: 1.5, interactive: true
@@ -974,24 +1391,21 @@ function renderRays() {
     }
   });
 
-  // Origin pin, always on top
+
   originPin = L.circleMarker([cLat, cLon], {
     radius: 7, color: '#ffd166', fillColor: '#ffffff', fillOpacity: 1, weight: 2.5
   }).addTo(_map);
 
-  // Re-add the axis line on top of rays (so it stays visible)
   if (axisLine)       { axisLine.remove();       axisLine = null; }
   if (axisDragMarker) { axisDragMarker.remove();  axisDragMarker = null; }
   updateAxisLine();
   updateAMPMLabels();
 
-  // Stats
   document.getElementById('s-shown').textContent = source.length.toLocaleString();
   document.getElementById('s-henge').textContent = hengeItems.length;
   document.getElementById('s-elev').textContent  = source.length
     ? `${minE.toFixed(1)}\u00b0\u2013${maxE.toFixed(1)}\u00b0` : '\u2014';
 
-  // Henge list
   const list = document.getElementById('hengeList');
   list.innerHTML = '';
   if (!hengeItems.length) {
@@ -1008,32 +1422,105 @@ function renderRays() {
     list.appendChild(el);
   });
 }
+
+
+// ── MOBILE BOTTOM SHEET ───────────────────────────────────────────────────────
+(function() {
+  const sheet  = document.getElementById('sheet');
+  const handle = document.getElementById('sheet-handle');
+  if (!sheet || !handle) return;
+
+  handle.addEventListener('click', () => sheet.classList.toggle('open'));
+
+  // Close sheet when tapping the map
+  document.getElementById('map').addEventListener('click', () => {
+    sheet.classList.remove('open');
+  });
+
+  // Day slider
+  const mDay = document.getElementById('m-daySlider');
+  const sDay = document.getElementById('daySlider');
+  mDay.addEventListener('input', e => {
+    sDay.value = e.target.value;
+    curDay = parseInt(e.target.value);
+    const lbl = curDay === 0 ? 'ALL YEAR' : doyToDate(curDay).toUpperCase();
+    const cls = curDay === 0 ? 'all-year' : '';
+    ['dayDisplay','m-dayDisplay'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.textContent = lbl; el.className = cls; }
+    });
+    if (precompDone) renderRays();
+  });
+
+  // Ray length
+  const mRay = document.getElementById('m-rayLen');
+  const sRay = document.getElementById('rayLen');
+  mRay.addEventListener('input', e => {
+    sRay.value = e.target.value;
+    rayKm = parseFloat(e.target.value);
+    const lbl = rayKm.toFixed(1) + ' km';
+    document.getElementById('rayLenVal').textContent   = lbl;
+    document.getElementById('m-rayLenVal').textContent = lbl;
+    if (precompDone) renderRays();
+  });
+
+  // Axis slider
+  const mAxis = document.getElementById('m-axisSlider');
+  const sAxis = document.getElementById('axisSlider');
+  mAxis.addEventListener('input', e => {
+    sAxis.value = e.target.value;
+    axisBearing = parseFloat(e.target.value);
+    ['axisVal','m-axisVal'].forEach(id => {
+      const el = document.getElementById(id); if(el) el.textContent = axisBearing.toFixed(1);
+    });
+    syncAxisUI(); updateAxisLine();
+    if (precompDone) renderRays();
+  });
+
+  // Axis +/- delegate to patched sidebar buttons
+  document.getElementById('m-axisDown').addEventListener('click', () => document.getElementById('axisDown').click());
+  document.getElementById('m-axisUp').addEventListener('click',   () => document.getElementById('axisUp').click());
+
+  // Patch renderRays to mirror stats + henge list to sheet
+  const _orig = renderRays;
+  renderRays = function() {
+    _orig();
+    // Mirror stats
+    ['shown','henge','elev'].forEach(k => {
+      const src = document.getElementById('s-' + k);
+      const dst = document.getElementById('m-s-' + k);
+      if (src && dst) dst.textContent = src.textContent;
+    });
+    // Re-render mobile henge list from _hengeItems data
+    const dst = document.getElementById('m-hengeList');
+    if (dst) {
+      dst.innerHTML = '';
+      if (!_hengeItems.length) {
+        dst.innerHTML = '<div class="no-henge">None for current axis &amp; day.</div>';
+      } else {
+        _hengeItems.forEach(h => {
+          const el = document.createElement('div');
+          el.className = 'henge-item';
+          el.innerHTML = `<span class="ht">${h.d.dtStr}</span><br>` +
+            `<span class="haz">Az ${h.d.az.toFixed(2)}\u00b0</span> &middot; ` +
+            `Elev <span style="color:#ffd166">${h.d.elev.toFixed(2)}\u00b0</span>`;
+          el.addEventListener('click', () => {
+            sheet.classList.remove('open');
+            _map.setView([h.la2, h.lo2], 15);
+          });
+          dst.appendChild(el);
+        });
+      }
+    }
+    // Mirror coords
+    const sync = (sid, mid) => {
+      const s = document.getElementById(sid), d = document.getElementById(mid);
+      if (s && d) d.textContent = s.textContent;
+    };
+    sync('dLat','m-dLat'); sync('dLon','m-dLon');
+  };
+})();
+
 </script>
-
-<style>
-/* leaflet crosshair thing */
-.leaflet-container { cursor: crosshair !important; }
-.leaflet-grab, .leaflet-dragging .leaflet-grab { cursor: crosshair !important; }
-
-/* ── HENGE TOOLTIP ───────────────────────────────────────────────────────────
-   Popup on hovering a henge dot.
-   background: fill | border: outline | color: text
-   white-space:pre preserves the \n newline in the label string.
-   ::before hides the Leaflet tooltip arrow.
-────────────────────────────────────────────────────────────────────────── */
-.htt.leaflet-tooltip {
-  background: #0a0a0f !important;
-  border: 1px solid #ff6b35 !important;
-  color: #ffd166 !important;
-  font-family: 'Space Mono', monospace !important;
-  font-size: 0.68rem !important;
-  padding: 5px 9px !important;
-  border-radius: 2px !important;
-  box-shadow: 0 0 14px #ff6b3550 !important;
-  white-space: pre !important;
-}
-.htt.leaflet-tooltip::before { display: none !important; }
-</style>
-
 </body>
 </html>
