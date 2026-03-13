@@ -394,131 +394,46 @@
        • Ray-tip tooltip repositioned to top of screen on touch
   ══════════════════════════════════════════════════════════════════════════ */
   @media (max-width: 640px) {
-    /* Header ────────────────────────────────────────────────────────────── */
-    header {
-      padding: 8px 12px; gap: 8px; flex-wrap: nowrap;
-      align-items: center;
-    }
-    header h1 { font-size: 1.1rem; }
-    header .sub { display: none; }
-
-    /* Collapse button text to icons */
-    #faq-btn  { font-size: 0; padding: 6px 8px; border-radius: 50%; line-height:1; }
-    #faq-btn::before  { content: '?'; font-size: 0.75rem; }
-    #a11y-btn { font-size: 0; padding: 6px 8px; border-radius: 50%; }
-    #a11y-btn::before { content: 'A+'; font-size: 0.65rem; }
-    #lm-btn   { font-size: 0; padding: 6px 8px; border-radius: 50%; }
-    #lm-btn::before   { content: '🏘'; font-size: 0.85rem; }
-
-    /* Sidebar: hidden on mobile — replaced by bottom sheet */
-    .sidebar { display: none; }
-
-    /* Layout: column so map + sheet stack vertically */
-    .layout { flex-direction: column; }
-
-    /* Map fills all available space above the sheet tab */
-    #map-wrap { flex: 1; min-height: 0; }
-
-    /* Click hint: shorter text */
-    #click-hint { font-size: 0.52rem; padding: 4px 10px; bottom: 8px; }
-
-    /* ── BOTTOM SHEET ──────────────────────────────────────────────────── */
-    #sheet {
-      position: fixed; bottom: 0; left: 0; right: 0;
-      height: 58vh;
-      background: var(--panel);
-      border-top: 1px solid var(--border);
-      border-radius: 12px 12px 0 0;
-      z-index: 600;
-      display: flex; flex-direction: column;
-      transform: translateY(calc(100% - 44px)); /* collapsed: only handle visible */
-      transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-      will-change: transform;
-    }
-    #sheet.open { transform: translateY(0); }
-
-    /* Drag handle bar */
-    #sheet-handle {
-      flex-shrink: 0;
-      height: 44px; display: flex; align-items: center;
-      justify-content: center; cursor: pointer; gap: 10px;
-      border-radius: 12px 12px 0 0;
-      background: var(--panel);
-      border-bottom: 1px solid var(--border);
-      user-select: none;
-    }
-    #sheet-handle .pill {
-      width: 36px; height: 4px;
-      background: var(--border); border-radius: 2px;
-    }
-    #sheet-handle .sheet-label {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 0.85rem; letter-spacing: 0.12em;
-      color: var(--muted);
-    }
-    #sheet.open #sheet-handle .sheet-label { color: var(--accent); }
-
-    /* Scrollable content inside sheet */
-    #sheet-body {
-      flex: 1; overflow-y: auto; padding: 14px 16px 24px;
-      display: flex; flex-direction: column; gap: 14px;
-    }
-
-    /* Sheet section headings inherit sidebar h2 style */
-    #sheet-body h2 {
-      font-family: 'Bebas Neue', sans-serif; font-size: 0.95rem;
-      letter-spacing: 0.1em; color: var(--accent);
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 5px; margin-bottom: 2px;
-    }
-
-    /* Compact grid for sliders: 2-col on wider phones */
-    .sheet-grid {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px;
-    }
-    .sheet-grid .full { grid-column: 1 / -1; }
-
-    /* Henge list in sheet: full height */
-    .henge-list { max-height: 160px; }
-
-    /* Stats rows smaller */
-    .stat-row { font-size: 0.58rem; }
-
-    /* Modal: full width on mobile */
-    #modal, #faq-modal { max-width: 100%; border-radius: 0; }
-    #modal-overlay, #faq-overlay { padding: 0; align-items: flex-end; }
-    #modal { border-radius: 12px 12px 0 0; max-height: 85vh; overflow-y: auto; }
-    #faq-modal { max-height: 92vh; border-radius: 12px 12px 0 0; }
-  }
-
-  /* ══ MOBILE (≤640px) ════════════════════════════════════════════════════════ */
-  @media (max-width: 640px) {
     header { padding: 8px 12px; gap: 8px; flex-wrap: nowrap; align-items: center; }
     header h1 { font-size: 1.1rem; }
     header .sub { display: none; }
-    /* Collapse buttons to icon badges */
+
+    /* Buttons collapse to circular icon badges */
     #faq-btn, #a11y-btn, #lm-btn { font-size: 0; padding: 6px 9px; border-radius: 50%; }
     #faq-btn::before  { content: '?';  font-size: 0.8rem; }
     #a11y-btn::before { content: 'A+'; font-size: 0.65rem; }
-    #lm-btn::before   { content: '🏘'; font-size: 0.9rem; }
-    /* Hide desktop sidebar */
+    #lm-btn::before   { content: '\1F3D8'; font-size: 0.9rem; }
+
+    /* Active: color the ::before pseudo-element via inherited color */
+    #a11y-btn.active, #lm-btn.active {
+      background: #1f1a08 !important;
+      border-color: var(--yellow) !important;
+      color: var(--yellow) !important;  /* inherited by ::before */
+    }
+    #a11y-btn.active::before, #lm-btn.active::before {
+      color: var(--yellow);
+    }
+
     .sidebar { display: none; }
-    /* Map fills full available space */
     .layout { flex-direction: column; }
     #map-wrap { flex: 1; min-height: 0; }
-    /* Shorten click hint */
     #click-hint { font-size: 0.52rem; padding: 4px 10px; bottom: 52px; }
-    /* Push Leaflet attribution above the sheet handle */
+    .stat-row { font-size: 0.58rem; }
+
+    /* Leaflet attribution above sheet handle */
     .leaflet-bottom.leaflet-right { bottom: 48px !important; z-index: 400 !important; }
-    /* ── Bottom sheet ────────────────────────────────────────────────────── */
+
+    /* Bottom sheet */
     #sheet {
-      position: fixed; bottom: 0; left: 0; right: 0; height: 58vh;
+      position: fixed; bottom: 0; left: 0; right: 0;
+      height: 58vh; height: 58dvh;
       background: var(--panel); border-top: 1px solid var(--border);
       border-radius: 12px 12px 0 0; z-index: 600;
       display: flex; flex-direction: column;
       transform: translateY(calc(100% - 44px));
       transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
       will-change: transform;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
     }
     #sheet.open { transform: translateY(0); }
     #sheet-handle {
@@ -545,16 +460,13 @@
     .sheet-grid .full { grid-column: 1 / -1; }
     .henge-list { max-height: 150px; }
 
-    /* Active states for mobile icon buttons */
-    #a11y-btn.active { border-color:var(--yellow) !important; color:var(--yellow) !important; background:#1f1a08 !important; }
-    #lm-btn.active   { border-color:var(--yellow) !important; color:var(--yellow) !important; background:#1f1a08 !important; }
-
-    /* Modals: slide up from bottom */
+    /* Modals slide up from bottom */
     #modal-overlay, #faq-overlay { padding: 0; align-items: flex-end; }
     #modal { border-radius: 12px 12px 0 0; max-height: 85vh; overflow-y: auto; max-width: 100%; }
     #faq-modal { border-radius: 12px 12px 0 0; max-height: 92vh; max-width: 100%; }
   }
-  /* Desktop: hide the sheet */
+
+    /* Desktop: hide the sheet */
   @media (min-width: 641px) {
     #sheet { display: none; }
   }
@@ -963,23 +875,25 @@ function showLandmarks() {
     const m = L.marker([lm.lat,lm.lon],{icon,zIndexOffset:500})
       .bindTooltip(tt)
       .addTo(_map);
-    // On click: show tooltip persistently, then move origin
+    // Tap once: show tooltip. Tap same landmark again: move origin.
     m.on('click', () => {
-      _lmJustTapped = true;  // prevent map-tap-close from firing on same event
-      setTimeout(() => { _lmJustTapped = false; }, 300);
+      _lmJustTapped = true;
+      setTimeout(() => { _lmJustTapped = false; }, 400);
       if (_openLmTooltip === m) {
+        // Second tap on same landmark — commit origin move
         m.closeTooltip();
         _openLmTooltip = null;
+        cLat=lm.lat; cLon=lm.lon;
+        document.getElementById('dLat').textContent=cLat.toFixed(5);
+        document.getElementById('dLon').textContent=cLon.toFixed(5);
+        _map.setView([cLat,cLon],_map.getZoom());
+        startPrecompute();
       } else {
+        // First tap — show tooltip only, don't move origin yet
         if (_openLmTooltip) _openLmTooltip.closeTooltip();
         m.openTooltip();
         _openLmTooltip = m;
       }
-      cLat=lm.lat; cLon=lm.lon;
-      document.getElementById('dLat').textContent=cLat.toFixed(5);
-      document.getElementById('dLon').textContent=cLon.toFixed(5);
-      _map.setView([cLat,cLon],_map.getZoom());
-      startPrecompute();
     });
     landmarkMarkers.push(m);
   });
