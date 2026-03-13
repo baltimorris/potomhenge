@@ -607,7 +607,7 @@
         Click anywhere on the map to set your viewpoint. Use the <strong style="color:var(--blue)">street axis line</strong>
         to dial in any street bearing (or "azimuth") by rotating it until it lines up with your street on the map if the street you want isn't *directly* east-west.
         Rays that match that bearing and are below 10° elevation (how high the sun is above the horizon) are your
-        <strong style="color:var(--accent)">henge moments</strong>. 
+        <strong style="color:var(--accent)">henge moments</strong>.  If you can't see the text well, the <strong>A+</strong> button at the top enables Accessibility Mode and makes the text bigger and more high-contrast.
       </div>
     </div>
     <button id="modal-close">SHINE ON &rarr;</button>
@@ -881,7 +881,13 @@
 </div>
 
 
-<script>
+<script>// ── requestIdleCallback polyfill (unsupported on iOS Safari) ─────────────────
+window.requestIdleCallback = window.requestIdleCallback ||
+  function(cb) { return setTimeout(cb, 0); };
+window.cancelIdleCallback = window.cancelIdleCallback ||
+  function(id) { clearTimeout(id); };
+
+
 // ── MODAL ───────────────────────────────────────────────────────────────────
 document.getElementById('modal-close').addEventListener('click', () => {
   document.getElementById('modal-overlay').classList.add('hidden');
