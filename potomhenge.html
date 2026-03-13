@@ -886,7 +886,13 @@
 </div>
 
 
-<script>
+<script>// ── requestIdleCallback polyfill (unsupported on iOS Safari) ─────────────────
+window.requestIdleCallback = window.requestIdleCallback ||
+  function(cb) { return setTimeout(cb, 0); };
+window.cancelIdleCallback = window.cancelIdleCallback ||
+  function(id) { clearTimeout(id); };
+
+
 // ── MODAL ───────────────────────────────────────────────────────────────────
 document.getElementById('modal-close').addEventListener('click', () => {
   document.getElementById('modal-overlay').classList.add('hidden');
