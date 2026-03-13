@@ -374,7 +374,7 @@
     background:#1a1a28; border:1px solid var(--border); color:var(--muted);
     padding:3px 8px; cursor:pointer; border-radius:2px;
     transition:border-color 0.15s,color 0.15s; align-self:center; white-space:nowrap; }
-  #lm-btn:hover { border-color:var(--yellow); color:var(--yellow); }
+  #lm-btn:hover, #lm-btn.active { border-color:var(--yellow); color:var(--yellow); background:#1f1a08; }
 
   /* ── RAY HOVER TOOLTIP ───────────────────────────────────────────────────── */
   #ray-tip { display:none; position:absolute; z-index:800;
@@ -544,6 +544,11 @@
     .sheet-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
     .sheet-grid .full { grid-column: 1 / -1; }
     .henge-list { max-height: 150px; }
+
+    /* Active states for mobile icon buttons */
+    #a11y-btn.active { border-color:var(--yellow) !important; color:var(--yellow) !important; background:#1f1a08 !important; }
+    #lm-btn.active   { border-color:var(--yellow) !important; color:var(--yellow) !important; background:#1f1a08 !important; }
+
     /* Modals: slide up from bottom */
     #modal-overlay, #faq-overlay { padding: 0; align-items: flex-end; }
     #modal { border-radius: 12px 12px 0 0; max-height: 85vh; overflow-y: auto; max-width: 100%; }
@@ -881,13 +886,7 @@
 </div>
 
 
-<script>// ── requestIdleCallback polyfill (unsupported on iOS Safari) ─────────────────
-window.requestIdleCallback = window.requestIdleCallback ||
-  function(cb) { return setTimeout(cb, 0); };
-window.cancelIdleCallback = window.cancelIdleCallback ||
-  function(id) { clearTimeout(id); };
-
-
+<script>
 // ── MODAL ───────────────────────────────────────────────────────────────────
 document.getElementById('modal-close').addEventListener('click', () => {
   document.getElementById('modal-overlay').classList.add('hidden');
@@ -945,6 +944,7 @@ const DC_LANDMARKS = [
 ];
 let landmarkMarkers=[], landmarksVisible=false;
 let _openLmTooltip = null;  // track open persistent tooltip
+let _lmJustTapped  = false;  // debounce landmark click vs map-close
 function showLandmarks() {
   DC_LANDMARKS.forEach(lm => {
     const icon=L.divIcon({className:'',
@@ -959,12 +959,12 @@ function showLandmarks() {
       .addTo(_map);
     // On click: show tooltip persistently, then move origin
     m.on('click', () => {
-      // Toggle: if this tooltip is already open, close it and move origin
+      _lmJustTapped = true;  // prevent map-tap-close from firing on same event
+      setTimeout(() => { _lmJustTapped = false; }, 300);
       if (_openLmTooltip === m) {
         m.closeTooltip();
         _openLmTooltip = null;
       } else {
-        // Close previous
         if (_openLmTooltip) _openLmTooltip.closeTooltip();
         m.openTooltip();
         _openLmTooltip = m;
@@ -981,8 +981,8 @@ function showLandmarks() {
 function hideLandmarks() { landmarkMarkers.forEach(m=>m.remove()); landmarkMarkers=[]; }
 document.getElementById('lm-btn').addEventListener('click', function() {
   landmarksVisible=!landmarksVisible;
-  if (landmarksVisible) { showLandmarks(); this.style.borderColor='var(--yellow)'; this.style.color='var(--yellow)'; }
-  else { hideLandmarks(); this.style.borderColor=''; this.style.color=''; }
+  if (landmarksVisible) { showLandmarks(); this.classList.add('active'); }
+  else { hideLandmarks(); this.classList.remove('active'); }
 });
 
 // ── RAY HOVER (mouse + touch) ────────────────────────────────────────────────
@@ -1436,13 +1436,79 @@ function renderRays() {
   const handle = document.getElementById('sheet-handle');
   if (!sheet || !handle) return;
 
-  handle.addEventListener('click', () => sheet.classList.toggle('open'));
+  // ── Drag logic ──────────────────────────────────────────────────────────────
+  // Sheet height (px) — read at drag start so it works for any screen size
+  let sheetH    = 0;
+  let dragStartY = 0;   // clientY where finger first touched
+  let dragCurY   = 0;   // current finger clientY
+  let isDragging = false;
+  let isOpen     = false;
 
-  // Close sheet when tapping the map
-  document.getElementById('map').addEventListener('click', () => {
-    sheet.classList.remove('open');
-  });
+  function getSheetH() { return sheet.getBoundingClientRect().height; }
 
+  function setTranslate(dy) {
+    // dy: pixels dragged (positive = down/closing, negative = up/opening)
+    // Clamp: can't drag above fully-open (0) or below fully-collapsed (sheetH - 44)
+    const max = sheetH - 44;
+    const clamped = Math.max(0, Math.min(max, dy));
+    sheet.style.transition = 'none';
+    sheet.style.transform  = `translateY(${clamped}px)`;
+  }
+
+  function snapSheet(open) {
+    isOpen = open;
+    sheet.style.transition = 'transform 0.28s cubic-bezier(0.4,0,0.2,1)';
+    sheet.style.transform  = open ? 'translateY(0)' : `translateY(calc(100% - 44px))`;
+    sheet.classList.toggle('open', open);
+  }
+
+  handle.addEventListener('touchstart', e => {
+    sheetH     = getSheetH();
+    dragStartY = e.touches[0].clientY;
+    dragCurY   = dragStartY;
+    isDragging = true;
+    sheet.style.transition = 'none';
+  }, { passive: true });
+
+  handle.addEventListener('touchmove', e => {
+    if (!isDragging) return;
+    dragCurY = e.touches[0].clientY;
+    const dy = isOpen
+      ? Math.max(0, dragCurY - dragStartY)          // open→ can only drag down
+      : Math.max(0, (sheetH - 44) + (dragCurY - dragStartY)); // closed→ can drag up
+    setTranslate(dy);
+  }, { passive: true });
+
+  handle.addEventListener('touchend', e => {
+    if (!isDragging) return;
+    isDragging = false;
+    const delta = dragCurY - dragStartY;
+    const SNAP_THRESH = 40;  // px — flick less than this snaps to opposite state
+    if (isOpen) {
+      snapSheet(delta < SNAP_THRESH);   // dragged down less than threshold → stay open
+    } else {
+      snapSheet(delta < -SNAP_THRESH);  // dragged up more than threshold → open
+    }
+  }, { passive: true });
+
+  // Fallback click-to-toggle for desktop-sim / non-touch
+  handle.addEventListener('click', () => snapSheet(!isOpen));
+
+  // ── Close sheet on map tap (not pan) ────────────────────────────────────────
+  let _mapTapStart = null;
+  const mapEl2 = document.getElementById('map');
+  mapEl2.addEventListener('touchstart', e => {
+    _mapTapStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  }, { passive: true });
+  mapEl2.addEventListener('touchend', e => {
+    if (!_mapTapStart) return;
+    const t = e.changedTouches[0];
+    const dist = Math.hypot(t.clientX - _mapTapStart.x, t.clientY - _mapTapStart.y);
+    _mapTapStart = null;
+    if (dist < 10 && !_lmJustTapped) snapSheet(false);
+  }, { passive: true });
+
+  // ── Mirror controls ──────────────────────────────────────────────────────────
   // Day slider
   const mDay = document.getElementById('m-daySlider');
   const sDay = document.getElementById('daySlider');
@@ -1487,17 +1553,15 @@ function renderRays() {
   document.getElementById('m-axisDown').addEventListener('click', () => document.getElementById('axisDown').click());
   document.getElementById('m-axisUp').addEventListener('click',   () => document.getElementById('axisUp').click());
 
-  // Patch renderRays to mirror stats + henge list to sheet
+  // ── Patch renderRays to mirror stats + henge list ───────────────────────────
   const _orig = renderRays;
   renderRays = function() {
     _orig();
-    // Mirror stats
     ['shown','henge','elev'].forEach(k => {
       const src = document.getElementById('s-' + k);
       const dst = document.getElementById('m-s-' + k);
       if (src && dst) dst.textContent = src.textContent;
     });
-    // Re-render mobile henge list from _hengeItems data
     const dst = document.getElementById('m-hengeList');
     if (dst) {
       dst.innerHTML = '';
@@ -1508,25 +1572,30 @@ function renderRays() {
           const el = document.createElement('div');
           el.className = 'henge-item';
           el.innerHTML = `<span class="ht">${h.d.dtStr}</span><br>` +
-            `<span class="haz">Az ${h.d.az.toFixed(2)}\u00b0</span> &middot; ` +
+            `<span class="haz">Az ${h.d.az.toFixed(2)}\u00b0</span> \u00b7 ` +
             `Elev <span style="color:#ffd166">${h.d.elev.toFixed(2)}\u00b0</span>`;
           el.addEventListener('click', () => {
-            sheet.classList.remove('open');
+            snapSheet(false);
             _map.setView([h.la2, h.lo2], 15);
           });
           dst.appendChild(el);
         });
       }
     }
-    // Mirror coords
     const sync = (sid, mid) => {
       const s = document.getElementById(sid), d = document.getElementById(mid);
       if (s && d) d.textContent = s.textContent;
     };
     sync('dLat','m-dLat'); sync('dLon','m-dLon');
   };
-})();
 
+  // Init mobile slider values
+  window.addEventListener('load', () => {
+    const ds = document.getElementById('daySlider');
+    const ms = document.getElementById('m-daySlider');
+    if (ds && ms) ms.value = ds.value;
+  });
+})();
 </script>
 </body>
 </html>
